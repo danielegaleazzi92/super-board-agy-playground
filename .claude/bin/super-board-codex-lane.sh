@@ -28,8 +28,6 @@ parser.add_argument('--card', required=True, help='card JSON or a JSON file')
 parser.add_argument('--lane', required=True, choices=['build', 'qa', 'review'])
 parser.add_argument('--tier', choices=['low', 'medium', 'high'], help='run ladder (--low / default / --high)')
 parser.add_argument('--complexity', choices=['low', 'medium', 'high'], help="router's grade for this card")
-parser.add_argument('--autonomy', choices=['ask', 'decide', 'full'],
-                    help='run --autonomous[=full]; default: config autonomy, else ask')
 raw = sys.argv[2:]
 explicit = False
 model = None
@@ -103,20 +101,6 @@ if not helper.exists() or subprocess.run([sys.executable, str(helper), '--check'
     result('halted', 'required GitHub reads halted or helper missing; preserve claims and worktrees')
     sys.exit(79)
 
-def autonomy_rules(mode):
-    """Prompt lines for run --autonomous[=full]; [] for ask. Mirrors AUTONOMY_RULES in super-board-wave.js."""
-    if mode == 'ask':
-        return ''
-    decided = 'merge policy money/auth/schema/spec' if mode == 'full' else 'merge policy size/default'
-    kept = '' if mode == 'full' else ', merge policy money/auth/schema/spec'
-    return (f"AUTONOMOUS MODE ({mode}): the run owner chose not to be asked. Read "
-            ".claude/skills/super-board/references/block-template.md → \"Autonomous mode\" and follow it EXACTLY: "
-            "where you would move this card to Blocked for a decision a person could make (❓ 🧑 🎨 👯, too big, "
-            f"🛡 truth-check inconclusive, rebuild cap, {decided}), decide instead with the decision ladder, act on it, "
-            "label the issue and PR auto-decided, and post ONE decision record (marker <!-- super-board:decision -->) "
-            "on the issue. Still Blocked 🙋, never decided: missing credentials 🔐, billing 💳, permissions 🔑, "
-            f"merge-gate exit 8 steps (live DB, human_steps), destructive production actions{kept}. "
-            f"Merge through the gate with --autonomy {mode}.\n")
 resolver_path = script_path.with_name('super-board-skills-ready.py')
 try:
     spec = importlib.util.spec_from_file_location('skills_ready', resolver_path)
@@ -147,7 +131,7 @@ Source .claude/bin/super-board-gh-guard.sh and use its quota checks. Required Gi
 Use .claude/bin/super-board-card.sh for board reads/moves and .claude/bin/super-board-pr-body.sh for owned PR blocks; follow writing-standard.md and pr-author-notes.md.
 Use your own worktree under .claude/worktrees/; never edit the main checkout. Clean up on ordinary exit, preserve work on halt/interruption.
 Codex adaptation: do not launch Claude or other sub-agents. Perform preflight, classification, independent review and truth-check duties inline. This changes the execution host, never the evidence requirements, confidence threshold or merge policy.
-{autonomy_rules(args.autonomy or config.get('autonomy') or 'ask')}Return JSON: status=advanced|bounced|blocked|human-gate|failed|halted; column=current board column; detail=one line; prUrl/branch when known, otherwise null; priorFindings=review counts or null. A non-advanced exit ends this card's lane chain. On merge-gate exit 9, return status=halted with detail starting exactly "verification-readiness:"; preserve work and never bounce/retry.
+Return JSON: status=advanced|bounced|blocked|human-gate|failed|halted; column=current board column; detail=one line; prUrl/branch when known, otherwise null; priorFindings=review counts or null. A non-advanced exit ends this card's lane chain. On merge-gate exit 9, return status=halted with detail starting exactly "verification-readiness:"; preserve work and never bounce/retry.
 '''
 if args.lane == 'build':
     prompt += '''Before creating any worktree or changing code, perform run.md's Builder pre-flight inline: call super-board-preflight.sh, judge its candidates semantically, and act on proceed/hold/sequence/skipped. Blind preflight leaves Ready and returns failed. Your own issue branch PR is not a duplicate. Read the issue and all comments; preserve qa/bug/feature labels. Existing docs/ux/tests/refactor/tech-debt rows keep their label chain: classify complexity without adding feature/bug. If truly untyped, classify feature or bug, re-run skills-ready on the proposed labelled card before adding that label, never qa. Then follow the Builder lifecycle.
@@ -157,7 +141,6 @@ elif args.lane == 'qa' and card['status'] == 'Ready':
 elif args.lane == 'review':
     prompt += '''The owner explicitly chose run --codex: you may review and own the merge. First load the latest <!-- super-review:report -->; grade prior R-ids fixed/not fixed/no longer applies, bounce any not fixed and edit the same report in place. Form hypotheses from the issue AC and diff before reading the Builder narrative.
 Rerun the Tester's tests. When truth_gate triggers, apply super-review's fixed Adversarial mode brief inline in two distinct passes (code-grounder and historian); collect evidence and aggregate confidence against truth_threshold. Over-engineering is Should fix, never Blocker alone and never lowers confidence. Missing evidence fails closed.
-When config interrogate.trigger fires (.claude/skills/super-review/references/interrogate.md), run its reviewer brief inline as two separate passes (correctness, then quality), each written to its own scratch file before the next starts, then the lead judgment; report `reviewers: inline`. Act-on findings join the report like any finding; quality-lens findings are Should fix at most. Never apply a reviewer's suggestion yourself.
 Merge ONLY through the unchanged .claude/bin/super-board-merge-gate.sh, pinning the exact head you reviewed at review pass using --expect-head "$HEAD" --config <config> --pr <N> --subject <title> --body-file <msg.md>. Never run bare gh pr merge or bypass the gate. Follow run.md Merge protocol and route every gate exit exactly: 2/5 rebase pass, 3 Blocked, 4 stay Review, 6 fresh review, 7/8 human gate with pinned approval-request; 9 verification-readiness means halt and preserve card/worktree/approval/claims until config repair and explicit restart, never a Build bounce or rebase retry. Respect human_approves_merge and merge_policy. Confirm MERGED <sha>, fetch base and prove merge-base --is-ancestor <sha> origin/<base> before closing issue or moving Done.
 '''
 
@@ -170,6 +153,21 @@ properties = {
                       'required': list(counts), 'additionalProperties': False}]},
 }
 schema = {'type': 'object', 'properties': properties, 'required': list(properties), 'additionalProperties': False}
+JSON_TYPES = {'object': dict, 'array': list, 'string': str, 'null': type(None)}
+def conforms(value, rule):
+    # The subset of JSON Schema the lane schema uses: type, enum, anyOf, properties/required/additionalProperties.
+    if 'anyOf' in rule:
+        return any(conforms(value, option) for option in rule['anyOf'])
+    kinds = rule['type'] if isinstance(rule['type'], list) else [rule['type']]
+    if not any(type(value) is int if kind == 'integer' else isinstance(value, JSON_TYPES[kind]) for kind in kinds):
+        return False
+    if 'enum' in rule and value not in rule['enum']:
+        return False
+    if isinstance(value, dict):
+        if set(value) - set(rule['properties']) or not set(rule['required']) <= set(value):
+            return False
+        return all(conforms(value[key], rule['properties'][key]) for key in value)
+    return True
 child = None
 def interrupted(signum, frame):
     if child is not None:
@@ -210,9 +208,8 @@ with tempfile.TemporaryDirectory(prefix='super-board-codex-') as temporary:
                    if child.returncode == 9 else 'skills-readiness: required skills became unavailable; preserve work' if child.returncode == 10 else f'codex exec exited {child.returncode}')
             sys.exit(child.returncode if child.returncode in (9, 10, 79) else 1)
         parsed = json.loads(output.read_text())
-        if (not isinstance(parsed, dict) or parsed.get('status') not in properties['status']['enum']
-                or not all(isinstance(parsed.get(key), str) for key in ['column', 'detail'])):
-            raise ValueError('lane result needs status, column and detail')
+        if not conforms(parsed, schema):
+            raise ValueError('lane result does not match the lane schema')
         print(json.dumps(parsed))
         sys.exit(10 if parsed['status'] == 'halted' and parsed['detail'].startswith('skills-readiness:')
                  else 9 if parsed['status'] == 'halted' and parsed['detail'].startswith('verification-readiness:')

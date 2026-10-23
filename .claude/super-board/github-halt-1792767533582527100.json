@@ -1,0 +1,1 @@
+{"reason": "GitHub required read failed; stopped after 3 failed attempts", "attempts": 3, "at": 1792767465, "operation": {"args": ["api", "rate_limit"], "kind": "quota", "meta": null}}

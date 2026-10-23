@@ -264,24 +264,8 @@ class Inventory:
         if host == 'claude':
             self.roots = [self.root / '.claude/skills', self.home / '.claude/skills']
             self.claude_plugins()
-        elif host == 'agy':
-            # Antigravity reads .agents/skills/ (project, up to the repository root) and
-            # ~/.agents/skills. Its lanes also read .claude/skills/<name>/SKILL.md files on
-            # instruction (super-board-agy-lane.sh), so that project surface counts too.
-            # No Codex config.toml semantics apply.
-            process = subprocess.run(['git', '-C', str(self.root), 'rev-parse', '--show-toplevel'],
-                                     text=True, capture_output=True)
-            boundary = Path(process.stdout.strip()).resolve() if process.returncode == 0 else self.root
-            scoped = [self.root]
-            if boundary in self.root.parents:
-                for parent in self.root.parents:
-                    scoped.append(parent)
-                    if parent == boundary:
-                        break
-            self.roots = [parent / '.agents/skills' for parent in scoped]
-            self.roots += [self.root / '.claude/skills', self.home / '.agents/skills']
         else:
-            # Codex discovery stops at this independent repository's root.
+            # Codex and Antigravity discovery stops at this independent repository's root.
             process = subprocess.run(['git', '-C', str(self.root), 'rev-parse', '--show-toplevel'],
                                      text=True, capture_output=True)
             boundary = Path(process.stdout.strip()).resolve() if process.returncode == 0 else self.root
@@ -292,6 +276,13 @@ class Inventory:
                     if parent == boundary:
                         break
             self.roots = [parent / '.agents/skills' for parent in scoped]
+        if host == 'agy':
+            # Google Antigravity reads .agents/skills/ (cwd up to the repository root; its bundled
+            # docs: agy-customizations/SKILL.md) and ~/.agents/skills. Its lanes also read
+            # .claude/skills/<name>/SKILL.md on instruction (super-board-agy-lane.sh), so that
+            # project surface counts too. No Codex config.toml semantics apply.
+            self.roots += [self.root / '.claude/skills', self.home / '.agents/skills']
+        elif host == 'codex':
             codex_home = (self.home / '.codex') if home else Path(os.environ.get('CODEX_HOME', self.home / '.codex'))
             self.roots += [self.home / '.agents/skills', codex_home / 'skills']
             try:

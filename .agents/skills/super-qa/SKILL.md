@@ -639,10 +639,7 @@ See `.claude/skills/super-board/references/run.md` → Tester (first pass — re
 3a. Existing project verifier → follow [project-verifier.md](references/project-verifier.md)
 for affected selection, host readiness, real assertions and fresh proof.
 3b. Run the **Test-gap check** (above) against the Builder's diff; its High gaps join the plan.
-3c. `config.qa.swarm.slices` > 0 and the plan spans several features or flows → split it per
-[swarm.md](references/swarm.md) (one tester per slice, own output directory, exact head SHA,
-aggregated table in the handoff; inline on Codex and Antigravity). A gap never counts as a pass.
-4. Run tests. Capture evidence to `docs/super-board/runs/issue-<N>-qa-v<N>/`. **For any UI-affecting issue, capture at least one screenshot per AC** (Playwright `page.screenshot` or `browse --screenshot`; on `platform.kind` android or unity, the capture method in `.claude/skills/super-board/references/platforms.md`: Roborazzi/Paparazzi or `adb screencap`, PlayMode `ScreenCapture`, under the platform's resource lock). Save with descriptive names: `ac1-<short-desc>.png`, not `screenshot1.png`.
+4. Run tests. Capture evidence to `docs/super-board/runs/issue-<N>-qa-v<N>/`. **For any UI-affecting issue, capture at least one screenshot per AC** (Playwright `page.screenshot` or `browse --screenshot`). Save with descriptive names: `ac1-<short-desc>.png`, not `screenshot1.png`.
 5. **Commit the evidence directory** to the issue branch alongside test files (`git add docs/super-board/runs/issue-<N>-qa-v<N>/ && git commit && git push`). This is non-optional — without it, the inline image markdown in the issue comment won't render on GitHub.
 6. **Pass** → tick the PR's `ac` block with proof lines, write `visual` for UI, append a `history` row, rewrite `status` (`super-board-pr-body.sh`) → `[qa] [report] ✅` PR comment with results + evidence path → **issue comment with screenshot evidence** (see "Issue-comment evidence format" below) → move QA → Review. Clean up worktree.
 7. **Fail** → leave failing ACs unchecked with the reason, append a `history` row, rewrite `status` → `[qa] [report] ❌` PR comment with per-AC expected/actual + repro file:line + evidence path + "what fixed should look like" → issue comment with the failure screenshots → increment rebuild counter → move QA → Ready (label `loop:rebuild-N`). Clean up worktree.
@@ -653,13 +650,6 @@ For an existing `.agents/skills/verify-<app>/` map, verifier creation during Onb
 or source/selector upkeep, read [project-verifier.md](references/project-verifier.md).
 Run relevant mapped features alongside issue AC checks; state missing/stale coverage
 in the existing handoff. A map inspection or starter template proves no test pass.
-
-### Optional swarm
-
-With `qa.swarm.slices` set, a card whose checks span several verifier features, flows or
-page types runs as parallel testers with one aggregated verdict: [swarm.md](references/swarm.md).
-Any `ISSUES` fails the card with every proven issue; a slice that drops out is a gap, rerun
-once, never a pass. Off by default; the ordinary single Tester remains the contract.
 
 ### Optional runtime performance and memory checks
 
@@ -685,7 +675,7 @@ The Tester's issue comment is the user's primary visibility into "is this actual
 
 **The canonical template lives in `.claude/skills/super-board/references/run.md` → "Screenshot embed format" (right after Tester first pass).** Do not duplicate it here; both lanes (super-board Tester + standalone super-qa) follow that exact format. Summary of rules workers must obey:
 
-- Capture screenshots at the standard viewports for UI ACs: **desktop 1920×1080, tablet 1024×768, mobile 375×667** — or at the config's `platform.devices` when set (Android AVDs, Unity resolutions).
+- Capture screenshots at the standard viewports for UI ACs: **desktop 1920×1080, tablet 1024×768, mobile 375×667**.
 - Commit the screenshots to the issue branch and push *before* writing the comment — inline image URLs won't render unless the file is on GitHub.
 - Use the `https://github.com/<OWNER>/<REPO>/raw/<SHA>/...` URL form, `<SHA>` = the commit that added the screenshots, so images keep rendering after the branch is deleted on merge. Resolve `<OWNER>/<REPO>` from `git remote get-url origin`.
 - Embed the same screenshots in BOTH the PR timeline comment AND the issue comment — the issue page is the user's primary view.

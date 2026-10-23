@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python ../.claude/hooks/agy-hook-adapter.py --event PreToolUse --protect-push",
+            "command": "python hooks/agy-hook-adapter.py --event PreToolUse --protect-push",
             "timeout": 30
           }
         ]

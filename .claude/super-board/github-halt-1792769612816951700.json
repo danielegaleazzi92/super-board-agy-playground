@@ -1,0 +1,1 @@
+{"reason": "GitHub required read failed; stopped after 3 failed attempts", "attempts": 3, "at": 1792769503, "operation": {"args": ["pr", "view", "2", "--json", "headRefName,headRefOid", "--jq", "\\(.headRefName) \\(.headRefOid)"], "kind": "head", "meta": null}}

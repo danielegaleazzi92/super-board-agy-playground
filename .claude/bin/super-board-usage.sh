@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# super-board-usage.sh — Claude plan-usage guard for the run loop.
+# super-board-usage.sh — plan-usage guard for the run loop (Claude Code, or Antigravity).
 #
 # WHERE THE NUMBER COMES FROM
 #
@@ -16,19 +16,28 @@
 # transcripts and reports tokens/cost per 5-hour block, but not a percentage of
 # the plan limit, so it cannot answer "are we at 95%".
 #
+# The Antigravity CLI (agy) does the same with its own status line
+# (antigravity.google/docs/cli/statusline): `quota.<bucket>.{remaining_fraction 0-1,
+# reset_time ISO-8601, reset_in_seconds}`, one bucket per plan window or model
+# (`gemini-weekly`, …). `record` recognises that shape by itself, converts every bucket to
+# {used_percentage, resets_at} and saves it to the agy snapshot; `check --host agy`
+# reads it and weighs every bucket, since the names are not fixed. Only an interactive
+# agy session renders a status line; headless `agy -p` lanes do not.
+#
 # So this script has two halves:
 #
 #   record — called from the status-line script with the status-line JSON on
-#            stdin. Saves `rate_limits` plus a timestamp to the snapshot file.
-#            Prints nothing, so it never disturbs the status line.
+#            stdin. Saves `rate_limits` (Claude) or the converted `quota` (agy)
+#            plus a timestamp to that host's snapshot file. Prints nothing, so it
+#            never disturbs the status line.
 #   check  — reads the snapshot and says ok / pause / unknown.
 #
 # LIMITS, STATED PLAINLY
 #
-# - The snapshot refreshes only while some interactive Claude Code session with
-#   the record line is rendering its status line (after each API response).
-#   Headless `claude -p` workers do not render one. The workflow backend's
-#   orchestrator IS an interactive session, so its own turns keep it fresh.
+# - The snapshot refreshes only while some interactive session with the record
+#   line is rendering its status line (after each API response). Headless
+#   workers do not render one. The workflow backend's orchestrator IS an
+#   interactive session, so its own turns keep it fresh.
 # - API-key and Bedrock/Vertex users get no `rate_limits` at all → `unknown`.
 # - Usage only grows inside a window until it resets. A stale reading at or
 #   over the threshold is therefore still a valid "pause" until its resets_at;
@@ -38,17 +47,9 @@
 #   <status-line json> | super-board-usage.sh record
 #   super-board-usage.sh check [--host claude|agy] [--config <cfg.json>] [--threshold 95] [--max-age 900]
 #
-# Snapshot: $SB_USAGE_FILE, default ~/.claude/super-board/usage.json (usage is
-# per account, not per repo, so one file serves every board).
-#
-# ANTIGRAVITY. The agy CLI pipes its own status-line JSON (antigravity.google/docs/cli/statusline)
-# with `quota: {<bucket>: {remaining_fraction 0-1, reset_time ISO-8601, reset_in_seconds}}`.
-# `record` recognises that shape by itself, converts each bucket to
-# {used_percentage, resets_at} and saves it to $SB_USAGE_FILE_AGY (default
-# ~/.gemini/super-board/usage.json). `check --host agy` reads that file and weighs every
-# bucket (Antigravity names its buckets per model / per week, not five_hour / seven_day).
-# The same limit applies: only an interactive agy session renders a status line; headless
-# `agy -p` lanes do not, so the orchestrator session keeps the snapshot fresh.
+# Snapshots: $SB_USAGE_FILE, default ~/.claude/super-board/usage.json (Claude) and
+# $SB_USAGE_FILE_AGY, default ~/.gemini/super-board/usage.json (agy). Usage is per
+# account, not per repo, so one file per host serves every board.
 #
 # check prints one JSON line:
 #   {"state":"ok|pause|unknown","window":"five_hour|seven_day|<agy bucket>|null",
@@ -74,8 +75,8 @@ case "$MODE" in
         | select(length > 0)' 2>/dev/null || true)
       [ -n "$RL" ] && FILE="$AGY_FILE"
     fi
-    # No rate_limits (API-key user, or before the session's first response):
-    # keep the last good snapshot rather than overwrite it with nothing.
+    # No rate_limits and no quota (API-key user, or before the session's first
+    # response): keep the last good snapshot rather than overwrite it with nothing.
     [ -n "$RL" ] || exit 0
     mkdir -p "$(dirname "$FILE")"
     TMP="$FILE.$$"
@@ -113,7 +114,8 @@ fi
 OUT=$(jq -c --argjson th "$THRESHOLD" --argjson maxage "$MAX_AGE" --argjson any "$ANY_WINDOW" '
   (now | floor) as $now
   | ($now - (.recorded_at // 0)) as $age
-  # A window whose reset time has passed is a fresh window: drop it.
+  # A window whose reset time has passed is a fresh window: drop it. Claude has two
+  # fixed windows; an agy snapshot names its buckets, so every one counts there.
   | [ (.rate_limits // {}) | to_entries[]
       | select($any or .key == "five_hour" or .key == "seven_day")
       | select((.value.used_percentage // null) != null)

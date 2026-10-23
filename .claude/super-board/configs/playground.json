@@ -8,41 +8,12 @@
   },
   "worker_backend": "workflow",
   "model_tier": "medium",
-  "autonomy": "ask",
   "agy": {
     "model": "gemini-3.8-flash",
     "ladder": null,
     "effort": null,
     "timeout": "60m",
-    "router_model": "gemini-3.8-flash",
-    "skip_permissions": false
-  },
-  "platform": {
-    "kind": "web",
-    "framework": "node",
-    "commands": {
-      "verify": "npm run verify",
-      "unit": "npm test",
-      "ui": null,
-      "e2e": null,
-      "build": null,
-      "screenshot": null
-    },
-    "devices": [
-      {
-        "name": "desktop",
-        "size": "1920x1080"
-      },
-      {
-        "name": "tablet",
-        "size": "1024x768"
-      },
-      {
-        "name": "mobile",
-        "size": "375x667"
-      }
-    ],
-    "exclusive": []
+    "router_model": "gemini-3.8-flash"
   },
   "target": {
     "type": "repo",
@@ -132,5 +103,6 @@
     "channel": "session",
     "chat_id": null,
     "bot_identity": "danielegaleazzi92"
-  }
+  },
+  "host": "agy"
 }

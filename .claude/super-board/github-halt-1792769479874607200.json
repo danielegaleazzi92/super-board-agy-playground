@@ -1,0 +1,1 @@
+{"reason": "GitHub required read returned incomplete evidence: issue/PR identity or body missing; stopped after 3 failed attempts", "attempts": 3, "at": 1792769441, "operation": {"args": ["pr", "list", "--json", "number,title,headRefName,baseRefName,isDraft,url"], "kind": "prs-open", "meta": null}}

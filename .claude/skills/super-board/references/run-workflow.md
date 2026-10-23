@@ -21,10 +21,13 @@ pins one model for every card and skips the router.
 Keep this run choice in each wave and resume command; skip only the Claude usage guard.
 
 **Inside Codex, plain `run` is `--codex`.** Your tool list has no Workflow tool, or
-`bash .claude/bin/super-board-host.sh` prints `codex` → run as `--codex` (tier flags and
+`bash .claude/bin/super-board-host.sh --config <config-path>` prints `codex` → run as `--codex` (tier flags and
 `--codex=<model>` still apply); it counts as explicit `--codex`, Review included.
 Say so once, in the first wave report: `🔁 codex host — running as --codex`. Never improvise a Claude workflow wave in Codex.
-Antigravity is the exception to "no Workflow tool means Codex": see "Antigravity runs" below.
+
+**Unknown host halts.** Run the host check before preconditions. Exit 65 (no host sign) or
+`opencode` (no OpenCode backend yet) halts before any claim, even with no Workflow tool, with one line:
+`⛔ unknown host — set SUPER_BOARD_HOST=claude|codex|agy and re-run`. Never guess a backend.
 
 After the same plan and claim steps, launch this command as a background task:
 `bash .claude/bin/super-board-codex-wave.sh --config <config-path> --cards <claimed-cards.json> --codex[=<model>] --tier <low|medium|high> --output <wave-result.json>`.
@@ -41,30 +44,30 @@ use the lane launcher's sandbox settings, including an external submodule git di
 
 ## Antigravity runs
 
-`/super-board run --agy` uses headless Google Antigravity (`agy -p`) for every lane of
-every wave, overriding `worker_backend`. It is the Codex contract above with another lane
-launcher: the same wave engine, PID marker, stop path, reconcile and merge gate.
+`/super-board run --agy` uses headless Google Antigravity (`agy -p`) for every lane of every
+wave, overriding `worker_backend`. It is the Codex contract above with another lane launcher:
+the same wave engine, PID marker, stop path, reconcile and merge gate.
 
 | Item | Antigravity |
 |---|---|
 | Wave | `bash .claude/bin/super-board-agy-wave.sh --config <config-path> --cards <claimed-cards.json> [--agy=<model>] --tier <low\|medium\|high> --output <wave-result.json>` as a background task |
-| Lane | `super-board-agy-lane.sh`: `agy -p <one-line pointer to the brief> --output-format json --json-schema <lane schema> --print-timeout <agy.timeout, 120m> --effort <…> [--model <…>]`; the result is the run's `structured_output` |
+| Lane | `super-board-agy-lane.sh`: the brief in a file under `.claude/super-board/inflight/`, then `agy -p <pointer> --output-format json --json-schema <lane schema> --print-timeout <agy.timeout, 120m> [--model <…>] [--effort <…>]`; the result is the run's `structured_output`, validated like the Codex lane's; a run with none fails closed and keeps the raw run at `inflight/agy-<n>-<lane>.last.json` |
 | Router | Ready cards graded read-only by `agy.router_model` (else the CLI default) at `--effort low`; `--agy=<model>` or `agy.model` pins one model and skips it |
-| Ladder | model: `agy.ladder[tier][grade]`, else the CLI default; effort: low/medium/high by tier × grade, Review always `high`, `agy.effort` pins it |
+| Ladder | model: `--agy=<model>`, else `agy.model`, else `agy.ladder[tier][grade]`, else the CLI default. Effort: `agy.effort`, else Review `high`, else low/medium/high by tier × grade. A slug that names its effort (`gemini-3.8-flash-low`) gets no `--effort`: agy refuses the pair |
 | Sub-agents | none: lanes run pre-flight, classification and truth-check inline (no `invoke_subagent`) |
-| Permissions | headless agy soft-denies un-allowed shell commands and still exits 0. Before the first wave: `python3 .claude/bin/super-board-agy-permissions.py --apply` (converts the board's allowlist into `~/.gemini/antigravity-cli/settings.json`). A lane that hit a denial says `⚠️ … denied by agy permissions` in its detail: report it, fix the allowlist, never set `agy.skip_permissions` to get past it |
-| Guards | `.agents/hooks.json` (installed by `install.sh --agy`) runs the same guard hooks through `.claude/hooks/agy-hook-adapter.py` |
-| Usage guard | `bash .claude/bin/super-board-usage.sh check --host agy --config <config-path>` instead of the Claude check; same exits (0 / 10 pause / 3 unknown). The snapshot comes from the agy status line: add `\| bash <repo>/.claude/bin/super-board-usage.sh record` to its status-line command |
+| Permissions | headless agy auto-denies every tool call `permissions.allow` does not cover and still exits 0. Before the first wave: `python3 .claude/bin/super-board-agy-permissions.py --apply` (the lane profile: its docstring says why). A lane that hit a denial says `⚠️ … auto-denied by agy permissions` in its detail: report it, re-run the helper, never pass `--dangerously-skip-permissions` |
+| Guards | `.agents/hooks.json` (written by `install.sh --hosts agy`) runs the same guard hooks through `hooks/agy-hook-adapter.py`, before agy's own permission check |
+| Quota | over quota agy exits 3 with `RESOURCE_EXHAUSTED`: the lane halts (79) and the wave stops; resume after the reset. `bash .claude/bin/super-board-usage.sh check --host agy --config <config-path>` replaces the Claude usage guard (same exits 0 / 10 pause / 3 unknown); the snapshot comes from the agy status line: set `statusLine.command` in `~/.gemini/antigravity-cli/settings.json` to `bash <repo>/.claude/bin/super-board-usage.sh record`, or pipe your own status line into it |
 | Fallback | `usage_fallback: "agy"` lets Build/QA run on `super-board-agy-lane.sh` without `--agy` while Claude is paused; Review never |
-| Precondition | `agy` on PATH (`agy --version`), signed in (a run without cached auth fails `authentication required`), `bash -n` on both agy launcher scripts |
+| Precondition | `agy` on PATH (`agy --version`), signed in (an interactive `agy` once; headless runs use the cached sign-in and log harmless `not logged into Antigravity` cache warnings at start-up), `bash -n` on both agy launcher scripts |
+| Windows | lanes run their commands in PowerShell 5.1 (`python`, no `&&`), hooks under `cmd /c`; the brief says so |
 
 **Inside Antigravity, plain `run` is `--agy`.** Your tool list has Antigravity tools
-(`invoke_subagent`, `define_subagent`, `run_command`, `view_file`) and no Workflow tool, or
-`bash .claude/bin/super-board-host.sh` prints `agy` → run as `--agy` (tier flags and
+(`run_command`, `view_file`, `invoke_subagent`) and no Workflow tool, or
+`bash .claude/bin/super-board-host.sh --config <config-path>` prints `agy` → run as `--agy` (tier flags and
 `--agy=<model>` still apply); it counts as explicit `--agy`, Review included. Say so once:
 `🔁 antigravity host — running as --agy`. Never improvise waves with `invoke_subagent`:
 sub-agents return no schema-checked result, and the wave contract depends on one.
-Platform-specific build, test and evidence rules for every host: [platforms.md](platforms.md).
 
 ## Required GitHub evidence and a paused run
 
@@ -132,15 +135,15 @@ Run the same preconditions as `run.md` §Preconditions, minus PID checks:
       `(set -C; printf 'SLUG=%s\nSTARTED=%s\n' <slug> "$(date -u +%FT%TZ)" > <lock>)`.
       Before replacing an existing marker, check `/workflows` and verify the PID
       in `.claude/super-board/codex-wave.pid` (plain numeric PID) with `kill -0` plus its process command.
-      Only if neither backend has an active wave and no repo-local Codex lane
-      remains is the marker stale from a crashed run — replace it.
+      Only if neither backend has an active wave and no repo-local Codex or Antigravity
+      lane remains is the marker stale from a crashed run — replace it.
       Remove the lock when the run ends or stops. The legacy dispatcher
       refuses to start (and halts mid-run) while it exists.
    b. THEN verify no legacy run is active: BOTH
       `pgrep -f 'super-board-run.sh'` (the legacy dispatcher idles between
       dispatches with zero workers alive) and
       `pgrep -f 'claude -p .*super-board run'` are empty, AND `/workflows`
-      shows no running super-board-wave, AND no `super-board-codex-wave.sh` or
+      shows no running super-board-wave, AND no `super-board-codex-wave.sh`,
       `super-board-codex-lane.sh` or `super-board-agy-lane.sh` process belongs to this repo. If a legacy run is detected,
       remove the lock just created and stop — the legacy run won.
 6. Crash-recovery sweep (the workflow backend's equivalent of the legacy
@@ -155,23 +158,6 @@ Run the same preconditions as `run.md` §Preconditions, minus PID checks:
    strands a wave of reviewed PRs. An env with a command and no check: say so once, then go on.
    The URL resolves from the project's `.env`, never the session (config-schema → `migrations`).
 
-## Autonomous runs
-
-`/super-board run --autonomous` (level `decide`) or `--autonomous=full`; config `autonomy`
-(`ask` | `decide` | `full`, default `ask`) sets the default and the flag wins. It combines with
-`--codex` / `--agy` and the tier flags. Where a lane would park a card in Blocked for a decision
-a person could make, it decides, acts and posts a decision record instead
-(block-template.md → "Autonomous mode" has the per-level table; credentials, billing,
-permissions, exit-8 steps and destructive production actions stay 🙋 in every mode).
-
-| Step | With autonomy |
-|---|---|
-| Preconditions | once: `gh label create auto-decided --color FBCA04 --description "decided by the robot in autonomous mode" --force` |
-| Launch | Workflow `args.autonomy: "<level>"`; headless waves get `--autonomy <level>` |
-| Report (step 6) | adds `🤖 n decided (🔴 n)` to the wave line; decided cards are counts, not lines |
-| Done / halt | write the trail: `python3 .claude/bin/super-board-decisions.py report --out docs/super-board/runs/<date>-decisions.md` and name it in the final report: "🤖 <n> decisions to review, 🔴 <n> high risk → <path>" |
-| Resume line | keep `--autonomous[=full]` in it |
-
 ## The wave loop
 
 Repeat until a done condition or halt gate fires:
@@ -183,7 +169,7 @@ Repeat until a done condition or halt gate fires:
    quota: `gh api repos/<o>/<r>/issues/<n>/comments -f body=…` for a comment,
    `gh api -X DELETE repos/<o>/<r>/issues/<n>/assignees -f 'assignees[]=<bot>'`
    to release a claim. Board moves have no REST route; they wait for the reset.
-   **Usage guard** (Claude waves only; skip for `--codex`, explicit or host-switched; `--agy` runs the same check with `--host agy`) — `bash .claude/bin/super-board-usage.sh check --config <config-path>`
+   **Usage guard** (Claude waves only; skip for `--codex`, explicit or host-switched; `--agy` runs the same check with `--host agy`, see "Antigravity runs") — `bash .claude/bin/super-board-usage.sh check --config <config-path>`
    (Claude 5-hour and weekly plan usage; threshold `usage_pause_pct`, default 95):
    - exit 0 → launch.
    - exit 10 with `usage_fallback: "codex"` → resolve the selected remaining
@@ -197,6 +183,10 @@ Repeat until a done condition or halt gate fires:
      result, then reconcile (step 5). Re-run the usage check between cards; on exit 0
      return to normal waves. The report line says `🔁 codex fallback`. Without
      `usage_fallback: "codex"` the launcher refuses (exit 78) unless `--codex` is given.
+   - exit 10 with `usage_fallback: "agy"` → the same on Antigravity: resolve the chain for
+     `--host agy`, then `bash .claude/bin/super-board-agy-lane.sh --config <config-path> --card
+     '<card JSON>' --lane <build|qa>` without `--agy`, one card at a time; Review remains
+     refused. The report line says `🔁 agy fallback`.
    - exit 10 otherwise (pause) → launch nothing new. A wave already running finishes —
      stopping it mid-lane loses work. Then release claims as usual, post the
      resume note (one line to the user and the run manifest:
@@ -227,7 +217,7 @@ Repeat until a done condition or halt gate fires:
    read-only with `.claude/bin/super-board-github-read.py --kind issue -- issue
    view <N> --json number,title,body`. Keep number, status, labels and literal body
    in a JSON array file. Run `python3 .claude/bin/super-board-skills-ready.py
-   --root <repo-root> --host <claude|codex> --cards <cards.json>` for the actual
+   --root <repo-root> --host <claude|codex|agy> --cards <cards.json>` for the actual
    worker host before sweep/resume/refresh/flag/stranded actions or Claim.
    Exit 10 names missing helpers: halt, preserve all state, repair the exact
    visible skill files and restart explicitly. Exit 64 means invalid input.
@@ -288,17 +278,18 @@ Repeat until a done condition or halt gate fires:
    there is no cross-session claim at all, so never run two orchestrators
    (or /loop re-entries) against the same board without bot_identity.
 4. **Launch** — With `--codex`, or no Workflow tool, or the host check printing `codex`, use
-   "Codex runs" above; otherwise Workflow tool with
+   "Codex runs" above; with `--agy`, or the host check printing `agy`, use "Antigravity runs".
+   The host check printing `claude` uses the Workflow tool; exit 65 or `opencode` never
+   reaches Launch (see "Unknown host halts"). Workflow tool with
    `scriptPath: .claude/workflows/super-board-wave.js` and
-   `args: { configPath, cards, humanApprovesMerge, tier, autonomy }` (`cards` hydrated after the planner: each
+   `args: { configPath, cards, humanApprovesMerge, tier }` (`cards` hydrated after the planner: each
    carries `lane` and `labels`, and a `qa` card skips the Builder). Runs in the background; the
    orchestrator stays responsive. `humanApprovesMerge` comes from the config; when false the workflow serializes Review-lane agents (merge-race guard, execution side).
    `tier` is the run's model ladder: `'low'` when the user invoked
    `super-board run --low` (haiku/sonnet/opus by card complexity), `'high'`
    for `run --high` (opus for every card), omitted/`'medium'`
    otherwise (sonnet/opus/session — the default). A `model_tier` key in the
-   config sets the default; an explicit flag wins over config. `autonomy` is `'decide'` for
-   `run --autonomous`, `'full'` for `--autonomous=full`, else the config's `autonomy` (omit for `ask`).
+   config sets the default; an explicit flag wins over config.
 5. **Reconcile** (when the run completes) — read the returned `cards`
    summary. If `halted: true`, any card is `halted`, or the GitHub helper's `--check`
    fails, preserve claims and stop. For verification-readiness (exit 9), repair
@@ -332,7 +323,7 @@ Repeat until a done condition or halt gate fires:
    `block_rate_alert_pct` of initial Ready; or the user says stop. The halt
    note is four lines: `🛑 halted — <gate>` · the evidence (counts, the cards
    that kept bouncing) · what is left in flight or claimed · `Resume:
-   /super-board run <slug> [--codex[=<model>]|--agy[=<model>]] [--low|--high] [--autonomous[=full]]` (retain the run's choice) and who must act first.
+   /super-board run <slug> [--codex[=<model>]|--agy[=<model>]] [--low|--high]` (retain the run's choice) and who must act first.
 8. Loop to 1. For unattended cadence, the user may wrap this loop in /loop;
    the orchestrator must still stop at halt gates.
 
@@ -353,7 +344,7 @@ reported as skipped and does not change the completed product work.
 - Stop: `x` on the run in `/workflows` (or TaskStop), then release assignees
   for in-flight cards and post "stopped mid-flight" comments (same protocol
   as `references/stop.md`). Remove `.claude/super-board/inflight/workflow-wave.lock`.
-- Codex stop: with GitHub available, run `bash .claude/bin/super-board-stop.sh <slug>`; it validates the wave PID and allows SIGTERM to cancel child lanes before releasing claims. Apply the same claim/comment/lock protocol to ALL selected claimed cards, including queued cards. During a GitHub halt, send SIGTERM only to the verified wave PID, wait for child cancellation, and preserve claims without GitHub writes.
+- Codex / Antigravity stop: with GitHub available, run `bash .claude/bin/super-board-stop.sh <slug>`; it validates the wave PID and allows SIGTERM to cancel child lanes before releasing claims. Apply the same claim/comment/lock protocol to ALL selected claimed cards, including queued cards. During a GitHub halt, send SIGTERM only to the verified wave PID, wait for child cancellation, and preserve claims without GitHub writes.
 - Resume: just run again — board state is the only state. A workflow stopped
   mid-wave can also be resumed in-session via `resumeFromRunId` (completed
   lane agents return cached results).
@@ -378,14 +369,38 @@ don't stall on prompts:
     "Bash(mkdir:*)", "Bash(pgrep:*)", "Bash(node --check:*)",
     "Bash(bash .claude/bin/super-board-wave-plan.sh:*)",
     "Bash(bash .claude/bin/super-board-preflight.sh:*)",
+    "Bash(python3 .claude/bin/super-board-github-read.py:*)",
+    "Bash(.claude/bin/super-board-github-read.py:*)",
+    "Bash(python3 .claude/bin/super-board-verification-ready.py:*)",
     "Bash(python3 .claude/bin/super-board-skills-ready.py:*)",
     "Bash(bash .claude/bin/super-board-usage.sh:*)",
     "Bash(bash .claude/bin/super-board-throttle.sh:*)",
     "Bash(bash .claude/bin/super-board-codex-lane.sh:*)",
     "Bash(bash .claude/bin/super-board-codex-wave.sh:*)",
+    "Bash(bash .claude/bin/super-board-agy-lane.sh:*)",
+    "Bash(bash .claude/bin/super-board-agy-wave.sh:*)",
+    "Bash(python3 .claude/bin/super-board-agy-permissions.py:*)",
     "Bash(bash .claude/bin/super-board-host.sh:*)",
     "Bash(bash .claude/bin/super-board-pr-body.sh:*)", "Bash(gh pr edit:*)",
+    "Bash(bash .claude/bin/super-board-stop.sh:*)",
     plus your project's test runners (e.g. "Bash(npm test:*)", "Bash(npx playwright:*)").
+
+`tests/test_run_allowlist.py` fails when pre-flight or a lane calls a `.claude/bin`
+script this list does not cover. The read helper is listed in both forms: scripts call
+`python3 .claude/bin/super-board-github-read.py`, lane prompts call it directly.
+
+**Headless runs (`claude -p "/super-board run"`).** Supported only where Claude Code may
+write the project's `.claude/` folder without a prompt. `.claude/` is a protected path:
+the wave lock under `.claude/super-board/` (inflight lock, halt and PID files) is prompted
+in `default` and `acceptEdits`, denied in `dontAsk`, and no `permissions.allow` rule
+(e.g. `Edit(.claude/**)`) pre-approves it. Claude's own git worktrees under
+`.claude/worktrees/` are exempt, so lane worktrees need only `Bash(git worktree:*)`.
+Pick one:
+- Interactive (recommended): start `/super-board run` in a terminal session and answer
+  the first `.claude/` write prompt with "allow Claude to edit files in this project's
+  .claude folder for this session".
+- Headless: `claude -p "/super-board run" --permission-mode bypassPermissions`, only in
+  an isolated container or VM. `--permission-mode acceptEdits` stops at the wave lock.
 
 Merging is NOT in the base list. On a board whose `merge_policy.default` is
 `"auto"`, `super-board onboard` offers the merge lines as a diff to approve

@@ -69,26 +69,17 @@ DEFAULT_MIGRATION_GLOBS = [
     "**/migrations/*.sql", "db/migrate/**", "alembic/versions/**",
 ]
 DEFAULT_ALLOWED_ENVS = ["test", "staging"]
-# Which human-gate categories each autonomy level lets the robot decide (and record).
-AUTONOMY_CATEGORIES = {
-    "ask": set(),
-    "decide": {"size", "default"},
-    "full": {"size", "default", "money", "auth", "schema", "spec"},
-}
 DEFAULT_AUTO_MAX_LINES = 400
 DEFAULT_SIZE_EXCLUDE = [
     # lockfiles
     "**/package-lock.json", "**/yarn.lock", "**/pnpm-lock.yaml", "**/bun.lockb", "**/bun.lock",
     "**/npm-shrinkwrap.json", "**/Cargo.lock", "**/poetry.lock", "**/uv.lock", "**/Pipfile.lock",
     "**/Gemfile.lock", "**/composer.lock", "**/go.sum", "**/Podfile.lock", "**/pubspec.lock",
-    "**/gradle.lockfile", "**/Packages/packages-lock.json",
     # generated output
     "**/generated/**", "**/__generated__/**", "**/*.generated.*", "**/*.gen.*",
     "**/*.min.js", "**/*.min.css", "**/*.map", "**/*.pb.go", "**/*_pb2.py",
-    # Unity writes one .meta per asset; they move with the asset, not with review effort
-    "**/*.meta",
-    # snapshots (incl. Roborazzi / Paparazzi screenshot baselines)
-    "**/__snapshots__/**", "**/*.snap", "**/src/test/snapshots/**", "**/roborazzi/**",
+    # snapshots
+    "**/__snapshots__/**", "**/*.snap",
 ]
 
 
@@ -120,8 +111,6 @@ def main() -> int:
     ap.add_argument("--config", required=True)
     ap.add_argument("--meta", required=True)
     ap.add_argument("--diff", required=True)
-    ap.add_argument("--autonomy", choices=["ask", "decide", "full"],
-                    help="run --autonomous[=full]; default: config `autonomy`, else ask")
     a = ap.parse_args()
 
     cfg = json.load(open(a.config))
@@ -179,16 +168,6 @@ def main() -> int:
                         if k.lower() in added), None)
         if hit:
             human.append({"category": cat, "why": hit})
-    # super-goal: acceptance tests are the finish line the user approved. A lane that edits one
-    # could move the line instead of reaching it, so such a PR always waits for a person —
-    # unless it is the user's own spec change (label `spec`).
-    goal_paths = [g if any(c in g for c in "*?") else g.rstrip("/") + "/**"
-                  for g in (cfg.get("goal") or {}).get("acceptance_paths") or []]
-    if goal_paths and "spec" not in labels:
-        hit = next((p for p in paths if matches(p, goal_paths)), None)
-        if hit:
-            human.append({"category": "spec",
-                          "why": f"acceptance test changed: {hit} — only the user moves the finish line (label `spec` to approve)"})
 
     run, needs = [], []
     if mig_files:
@@ -213,17 +192,8 @@ def main() -> int:
         if m and m.group(1).lower() != "done":
             needs.append(m.group(1).strip("`"))
 
-    # Autonomous mode: the run owner chose not to be asked about these categories. They
-    # move from `human` to `auto_decided`; the gate merges and prints them so the Reviewer
-    # leaves a decision record. "policy" (could not classify) and every needs_you step
-    # (live DB, human_steps, needs-you: lines) stay human in every mode.
-    autonomy = a.autonomy or cfg.get("autonomy") or "ask"
-    decidable = AUTONOMY_CATEGORIES.get(autonomy, set())
-    auto = [h for h in human if h["category"] in decidable]
-    human = [h for h in human if h["category"] not in decidable]
-
-    print(json.dumps({"human": human, "auto_decided": auto, "autonomy": autonomy,
-                      "migrations": mig_files, "run": run, "needs_you": needs, "done": False}))
+    print(json.dumps({"human": human, "migrations": mig_files, "run": run,
+                      "needs_you": needs, "done": False}))
     return 0
 
 

@@ -65,11 +65,6 @@ been caught by `lint`. Take the human gate instead — see below.
   stopped on, not the rung you found it on.
 - **Mechanics** — the repo decides the library, so read `package.json`. TS/JS
   unit and integration → `vitest`. Browser e2e → `playwright-best-practices`.
-  Config `platform.kind` is `android` or `unity` → the rungs map to that
-  platform's layers in `.claude/skills/super-board/references/platforms.md`
-  (Android: JVM unit / Robolectric → screenshot test → instrumented → Maestro;
-  Unity: EditMode → PlayMode → player build). "Drive a browser" becomes "drive
-  the emulator / the PlayMode scene", under the platform's resource lock.
 
 `testing-strategy` informs *coverage* (what a component type is worth testing,
 what to skip) — it does not decide placement.

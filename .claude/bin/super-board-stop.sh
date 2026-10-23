@@ -3,7 +3,7 @@
 #
 # What it does:
 #   1. Find every in-flight worker (lock files under .claude/super-board/inflight/).
-#      Stop any Codex or Antigravity wave and its lane process groups before comments/releases.
+#      Stop any Codex wave and its lane process groups before comments/releases.
 #   2. For each one, post a "stopped mid-flight" comment on the issue AND its PR
 #      (with last commit, lane, and resume hint) — so context survives the kill.
 #   3. Release the GitHub assignee mutex on each claimed issue.

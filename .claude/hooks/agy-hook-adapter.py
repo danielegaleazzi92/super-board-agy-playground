@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""Run super-board's Claude Code guard hooks under Google Antigravity (agy CLI / 2.0 / IDE).
+"""Run super-board's guard hooks under Google Antigravity (the agy CLI, 2.0 and the IDE).
 
-Antigravity hooks (antigravity.google/docs/hooks) live in `.agents/hooks.json` and speak a
-different dialect from Claude Code:
+Antigravity hooks live in `.agents/hooks.json` (its bundled docs: agy-customizations/docs/hooks.md)
+and speak a different dialect from Claude Code:
 
-    in   {"toolCall": {"name": "run_command", "args": {...}}, "workspacePaths": [...], ...}
-    out  {"decision": "allow" | "deny" | "ask" | "force_ask" | "deny_unless_prior_grant",
-          "reason": "..."}
+    in   {"toolCall": {"name": "run_command", "args": {"CommandLine": "..."}},
+          "workspacePaths": [...], "conversationId": "...", "stepIdx": 3, ...}
+    out  {"decision": "allow" | "deny" | "ask" | "force_ask", "reason": "..."}
 
 The guards (guard-*.py next to this file) read Claude's
 `{"hook_event_name", "tool_name", "tool_input"}` and answer with
@@ -14,28 +14,36 @@ The guards (guard-*.py next to this file) read Claude's
 guards that Claude's settings-snippet.json would run for that tool, and translates the
 verdict back. The guards stay the single copy of every rule.
 
-Tool mapping. The docs name `run_command` and `view_file`; argument names are not
-documented, so the adapter reads the first non-empty value among the usual spellings
-(CommandLine / command / cmd …, AbsolutePath / TargetFile / file_path / path …) and maps a
-tool by its name: command/shell/terminal → Bash, view/read/open → Read, grep/search/find →
-Grep, write/create → Write, replace/edit/patch/modify → Edit. Anything else passes.
+Verified on agy 1.4.6 (2026-10-23): the hook fires in headless `agy -p` too, BEFORE the
+permission check, and a hook that fails to start blocks every matched tool call with its
+error as the reason. So the command in hooks.json must resolve: hooks run with the folder
+holding hooks.json as cwd (`.agents/`), through `sh -c` on Unix and `cmd /c` on Windows,
+where `python3` is a Store alias that prints "Python was not found" -- install.sh writes
+`python` there. This adapter sits in `.agents/hooks/` next to the guards.
+
+Tool mapping. `run_command` carries `CommandLine` (observed); the file tools are mapped by
+name and the first non-empty value among the usual path spellings (AbsolutePath / TargetFile
+/ file_path / path ...): command/shell/terminal -> Bash, view/read/open -> Read,
+grep/search/find -> Grep, write/create -> Write, replace/edit/patch/modify -> Edit. Anything
+else passes.
 
 No objection is not the same as "allow": `allow` would skip Antigravity's own permission
 check. The adapter answers
   - shell commands:            SB_AGY_HOOK_PASS_COMMAND (default "ask": the normal
-                               allowlist / Always Allow flow; headless soft-denies
-                               anything not allowed);
+                               allowlist flow; headless auto-denies what no rule allows,
+                               see scripts/super-board-agy-permissions.py);
   - files inside the workspace: SB_AGY_HOOK_PASS_FILE (default "allow": Antigravity
                                auto-allows workspace reads and writes anyway);
   - files outside it:          "ask".
-Verify these defaults against your agy version (super-board spike, docs/antigravity.md).
+The payload carries no shell cwd, only `workspacePaths`, so relative paths are resolved
+against the workspace root: a lane adds its worktree from the repo root, as the brief says.
 
 PostToolUse returns {} (the event takes no decision); the Pre check already saw the write.
 Like every guard, the adapter's own errors never block a tool call: it falls back to the
 pass decision above.
 
-Usage (from .agents/hooks.json):
-  python3 .claude/hooks/agy-hook-adapter.py --event PreToolUse [--protect-push]
+Usage (from .agents/hooks.json, cwd .agents/):
+  python3 hooks/agy-hook-adapter.py --event PreToolUse [--protect-push]
 """
 import json
 import os
@@ -72,6 +80,7 @@ def first(args, keys):
 def other_text(args, skip):
     """Every string an edit could write: all values except the path ones."""
     parts = []
+
     def walk(value):
         if isinstance(value, str):
             parts.append(value)

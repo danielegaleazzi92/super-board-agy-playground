@@ -49,14 +49,6 @@
 #   super-board-merge-gate.sh --config <config.json> --pr <number>
 #                             [--expect-head <sha>] [--subject <title>] [--body-file <md>]
 #                             [--lock-timeout 1800] [--stale-after 5400] [--dry-run]
-#                             [--autonomy ask|decide|full]
-#
-# `--autonomy` (run --autonomous[=full]; default: config `autonomy`, else ask) lets the
-# policy hand some human-gate categories to the robot: decide → size, default; full → also
-# money, auth, schema, spec. The gate then merges and prints one
-# `auto-decided: <category> — <evidence>` line each, which the Reviewer turns into a
-# decision record (block-template.md → "Autonomous mode"). needs-you steps (exit 8) and an
-# unclassifiable PR stay human in every mode.
 #
 # `--expect-head` is the PR head commit the Reviewer actually reviewed and
 # tested (its `headRefOid` when review passed). The gate pins everything to one
@@ -121,7 +113,7 @@ export SB_GITHUB_READ_STRICT=1
 HERE=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 GITHUB_READ="$HERE/super-board-github-read.py"
 
-CONFIG=""; PR=""; LOCK_TIMEOUT=1800; STALE_AFTER=""; DRY=0; EXPECT_HEAD=""; SUBJECT=""; MSG_FILE=""; AUTONOMY=""
+CONFIG=""; PR=""; LOCK_TIMEOUT=1800; STALE_AFTER=""; DRY=0; EXPECT_HEAD=""; SUBJECT=""; MSG_FILE=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --config)        CONFIG="$2"; shift 2 ;;
@@ -132,7 +124,6 @@ while [ $# -gt 0 ]; do
     --lock-timeout)  LOCK_TIMEOUT="$2"; shift 2 ;;
     --stale-after)   STALE_AFTER="$2"; shift 2 ;;
     --dry-run)       DRY=1; shift ;;
-    --autonomy)      AUTONOMY="$2"; shift 2 ;;
     *) echo "unknown arg: $1" >&2; exit 64 ;;
   esac
 done
@@ -247,7 +238,7 @@ HERE=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 META=$(mktemp); DIFF=$(mktemp)
 python3 "$GITHUB_READ" --kind metadata -- pr view "$PR" ${REPO:+--repo "$REPO"} --json labels,files,additions,deletions,changedFiles,body > "$META"
 python3 "$GITHUB_READ" --kind diff --meta "$META" -- pr diff "$PR" ${REPO:+--repo "$REPO"} > "$DIFF"
-PLAN=$(python3 "$HERE/super-board-merge-policy.py" --config "$CONFIG" --meta "$META" --diff "$DIFF" ${AUTONOMY:+--autonomy "$AUTONOMY"}) || {
+PLAN=$(python3 "$HERE/super-board-merge-policy.py" --config "$CONFIG" --meta "$META" --diff "$DIFF") || {
   echo "human-gate: policy — could not classify the PR (unreadable metadata)"
   say "merge policy could not be evaluated — a human merges this one"; exit 7; }
 
@@ -274,8 +265,6 @@ if [ -n "$HUMAN" ] && [ "$APPROVED" != true ]; then
   approval_request
   say "merge policy: waiting for a trusted human to approve this exact head"; exit 7
 fi
-# Categories the run owner let the robot decide: merge, and say so for the decision record.
-echo "$PLAN" | jq -r '(.auto_decided // [])[] | "auto-decided: \(.category) — \(.why)"'
 
 git -C "$REPO_PATH" fetch origin "$HEAD_REF" "$BASE" --quiet
 
@@ -338,7 +327,7 @@ if [ "$APPROVED" = true ]; then
   # Code remains pinned; body-declared human steps and config can change without
   # a commit. Reclassify them too instead of reusing the old approval scope.
   python3 "$GITHUB_READ" --kind metadata -- pr view "$PR" ${REPO:+--repo "$REPO"} --json labels,files,additions,deletions,changedFiles,body > "$META"
-  PLAN=$(python3 "$HERE/super-board-merge-policy.py" --config "$CONFIG" --meta "$META" --diff "$DIFF" ${AUTONOMY:+--autonomy "$AUTONOMY"}) || {
+  PLAN=$(python3 "$HERE/super-board-merge-policy.py" --config "$CONFIG" --meta "$META" --diff "$DIFF") || {
     say "human approval scope could not be refreshed"; exit 7; }
   approval_check
   if [ "$APPROVED" != true ]; then

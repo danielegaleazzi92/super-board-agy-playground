@@ -1,7 +1,7 @@
 # Skill readiness before dispatch
 
 Run `python3 .claude/bin/super-board-skills-ready.py --root <project> --host
-<claude|codex|agy> --cards <cards.json>` before any claims or wave writes. The cards
+<claude|codex> --cards <cards.json>` before any claims or wave writes. The cards
 array carries number, status, labels and literal issue body; hydrate absent
 bodies read-only with the guarded GitHub reader (`--hydrate` does this).
 For a worker boundary add `--lane build|qa|review`. Before using a conditional
@@ -28,12 +28,6 @@ authoritative catalog entries. Its core `.claude` direct reads are supported;
 helper files in `.claude` alone are not Codex availability. Symlinks are valid
 when their target is a readable, nonempty regular `SKILL.md`. A lockfile,
 cache directory or another host's install is not evidence.
-Antigravity (`--host agy`, what `run --agy` lanes use) sees `.agents/skills` from
-the current directory through its owning Git root, then the project's
-`.claude/skills` (an agy lane reads those files on instruction), then
-`~/.agents/skills`. `install.sh --agy` mirrors the pack's skills into
-`.agents/skills`; helper skills such as `tdd` or `code-review` count from
-`.claude/skills` as installed by `/super-board onboard`.
 
 `--home` isolates home discovery; `--catalog` supplies the enabled active
 inventory. Launchers accept `SUPER_BOARD_SKILLS_HOME` and

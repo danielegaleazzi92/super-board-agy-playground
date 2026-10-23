@@ -116,22 +116,6 @@ report and any test diff.
 
 A live site with no repo is not a board. `/super-qa <url>` tests it on its own.
 
-## Goal mode (config `goal`, driven by super-goal)
-
-When the config has a `goal` block, the board is building toward a written spec
-(`.claude/skills/super-goal/references/spec-format.md`). Every lane adds these rules to its own.
-
-| Lane | Adds |
-|---|---|
-| all | Read `<goal.spec_dir>/requirements.md`, `decisions.md`, `priorities.md` before acting. The card's `Implements: R<n>` line names the requirements it serves |
-| Pre-flight | `autonomy: "decide-and-log"`: an unclear card whose question the spec answers (decisions, priorities, precedent) is `proceed` with the answer noted, not `hold ❓`. Only a card with no acceptance criteria at all, or a question the spec does not answer and that is costly to undo, is held |
-| Builder | A doubt is settled by: decisions.md → priorities.md → repo precedent → smallest reversible choice. When the RESULT differs from the spec, or the spec was silent and the choice is visible or costly to undo, add `docs/goal/deviations/DV-<issue>-<k>.md` to the PR (format in spec-format.md). Same result as the spec = no file. NEVER edit a file under `goal.acceptance_paths`; the merge gate sends such a PR to a human (exit 7, category `spec`) |
-| Tester | Run the acceptance tests tagged with the card's `[R<n>]` ids (`goal.acceptance_command`, filtered by tag) and put their result in the `ac` block. Green → normal pass. Red and the PR has no DV file explaining it → Fail, bounce as usual |
-| Reviewer | Check the ledger against the diff: a behaviour that differs from the spec with no DV file → Gap finding; a DV file whose result matches the spec → Scope drift; run `python3 .claude/skills/super-goal/scripts/super-goal.py ledger --dir <goal.spec_dir>` (exit 1 → `[builder]` thread). An acceptance test the change cannot make pass as written → Blocked 🙋 quoting the DV file: the user changes the spec or accepts the deviation |
-
-The goal loop measures progress only through those acceptance tests (`super-goal.py trace`);
-a lane never declares a requirement met.
-
 ## Dispatch allocation model — one worker per lane, not per backlog
 
 `super-board run` allocates headless Claude capacity by **lane**, not by how many cards are stacked in one column.
@@ -174,7 +158,7 @@ read it — re-read, then redo the edit. Builder opens the PR with every block f
 | `ac` (checklist + one proof line each) | writes all unchecked | ticks with proof, or leaves unchecked with the reason | unticks one it disproved |
 | `history` (Lane · Done · Time · Details) | appends a row | appends a row | appends a row |
 | `visual` (Before \| After, UI only) | — | writes | — |
-| `risk` (🟢/🟡/🔴 + one line) | writes | — | adjusts |
+| `risk` (🟢/🟡/🔴 + one line, Door, Blast radius) | writes | — | adjusts |
 | `redcheck` (only when merged with a failing check) | — | — | writes |
 
 ```markdown
@@ -218,8 +202,8 @@ read it — re-read, then redo the edit. Builder opens the PR with every block f
 <!-- sb:risk -->
 ## Risk
 🟢 **Low** · <one line: what could break and what limits it>
-Door: <two-way | one-way> · <why a revert does or does not restore the previous state>
-Blast radius: <small | medium | large> · <what the change can reach>
+- **Door:** <two-way | one-way> · <how to undo, or why it cannot be undone>
+- **Blast radius:** <short label> · <who breaks if this is wrong>
 <!-- /sb:risk -->
 ```
 
@@ -318,23 +302,16 @@ column), never built unchecked. `qa` cards are not pre-flighted: nothing is buil
 0. Legacy backend only: run the Builder pre-flight above in a sub-agent. Anything but `proceed`
    (or a conflict-note `sequence`) → do what its row says, release the claim, exit.
 1. Create worktree `.claude/worktrees/issue-<N>-build/` off `config.base_branch`.
-   `platform.kind` is `unity` → seed it before the first editor run:
-   `bash .claude/bin/super-board-platform.sh seed-unity-library <worktree>`.
 2. Create branch `issue-<N>-<slug>` from `config.base_branch` — unless one already exists
    (the card came back from Building after a stopped run): then check it out, keep its
    commits and open PR, and continue from where it stopped.
-3. Read issue body + ALL comments + PROJECT.md. `platform.kind` is not `web` → read
-   [platforms.md](platforms.md) for that kind: its test layers replace Vitest/Playwright.
+3. Read issue body + ALL comments + PROJECT.md.
 3b. Touches a third-party API/SDK, an upgrade, or auth/billing? Read the current official docs
     for the installed version first (super-build → "Docs before outside-tool code").
 4. Implement smallest safe change covering ACs, under the PR size cap
    (`merge_policy.auto_max_lines`, default 400 changed lines). Growing past it mid-build → stop,
    push what you have, propose the split (vertical slices via `/to-tickets`) in a PR comment and
    move the card to Blocked `❓` — never push on past the cap (super-build → "Keep each PR small").
-   Code shape in the touched files follows super-build → [type-discipline.md](../../super-build/references/type-discipline.md).
-4b. **Clean the diff** (super-build → [clean-the-diff.md](../../super-build/references/clean-the-diff.md)):
-   narrating comments, swallowed errors, new suppressions, deep nesting and unneeded helpers leave;
-   rerun the tests to prove behaviour held; one `cleaned:` line in the PR `history` block.
 5. Commit + push (always). Commits follow writing-standard.md § 1 (`✨ [feat] chat: stream replies` + short bullets).
 6. Open draft PR linked to the issue with the PR description template (title in commit-subject format, every block filled).
 7. Follow [PR author notes](pr-author-notes.md), then post the `[builder] [report]` PR comment (see "Commenting cadence").
@@ -345,17 +322,11 @@ column), never built unchecked. `qa` cards are not pre-flighted: nothing is buil
 ### Builder (rebuild)
 
 1. Worktree as above.
-1b. **Attack the premise** (super-build → [attack-the-premise.md](../../super-build/references/attack-the-premise.md)):
-   when your previous failure handoff carries the same `root-cause-hash` as the one before it,
-   or the Reviewer re-opened the same finding as `❌ not fixed` twice, write the premise every
-   failed fix assumed, test it with one observation that would differ if it were false, and only
-   then fix. `premise:` and `premise-check:` lines go in the `[builder] [report]` comment and, at
-   the rebuild cap, in the Block template's "What I tried".
 2. Read PR review threads on this branch's PR; filter `[builder]` prefix.
 3. For each unresolved `[builder]` thread: read file:line + suggested fix, apply, resolve thread via graphql mutation.
 4. Address any new failure feedback from Tester's latest `❌` comment.
    (A Reviewer bounce reaches you as those same `[builder]` threads, listed in the latest `<!-- super-review:report -->` comment. A finding the Reviewer re-opened as `not fixed` was resolved without a fix last time — fix the code, not just the thread.)
-5. Clean the diff (step 4b above), commit + push to same branch.
+5. Commit + push to same branch.
 6. Verify ALL `[builder]` threads are resolved. If not, return to step 3.
 7. Refresh [PR author notes](pr-author-notes.md), rewrite `status`, `solution`, `history` blocks; post `[builder] [report]` PR + issue comments. Move Building → QA. Clean up worktree.
 
@@ -370,11 +341,7 @@ column), never built unchecked. `qa` cards are not pre-flighted: nothing is buil
 for affected feature selection, actual host readiness and new run-owned proof.
 Record uncovered/stale optional coverage alongside ordinary issue AC checks.
 4b. **Test-gap check** (super-qa → "Test-gap check (after build)"): map every AC to unit / component / e2e tests, hunt edge cases, write the High gaps red-first. A High gap that needs app code changed → Fail (step 7) with the gap list. Medium/Low go in the handoff under `Test gaps (not written)`.
-4c. `config.qa.swarm.slices` > 0 and the plan spans several features, flows or page types →
-   super-qa → [swarm.md](../../super-qa/references/swarm.md): one tester per slice, each with
-   its own output directory and the exact head SHA, one aggregated table in the handoff. A gap
-   never counts as a pass. Codex and Antigravity lanes run the slices inline.
-5. Run the tests. Capture evidence to `docs/super-board/runs/issue-<N>-qa-v<N>/`. For UI/visual ACs, capture screenshots at the standard viewports (1920×1080 desktop, 1024×768 tablet, 375×667 mobile) — or, when the config has `platform.devices`, at those devices instead, with the layer and capture method of [platforms.md](platforms.md) for `platform.kind` (Android: Roborazzi/Paparazzi or `adb screencap`; Unity: PlayMode `ScreenCapture`). Emulator and PlayMode runs go under `super-board-platform.sh lock <resource>`. Commit the screenshots to the issue branch BEFORE writing the comment (the markdown image URLs depend on the files being present on the branch).
+5. Run the tests. Capture evidence to `docs/super-board/runs/issue-<N>-qa-v<N>/`. For UI/visual ACs, capture screenshots at the standard viewports (1920×1080 desktop, 1024×768 tablet, 375×667 mobile). Commit the screenshots to the issue branch BEFORE writing the comment (the markdown image URLs depend on the files being present on the branch).
 6. **Pass** → commit test files + screenshots to same branch + push → tick the `ac` block with proof lines, write `visual` for UI, append a `history` row, rewrite `status` → `[qa] [report] ✅` PR comment with results + evidence path **+ inline screenshot embeds** (see "Screenshot embed format" below) → issue comment with the SAME inline screenshot embeds → move card QA → Review. Clean up worktree.
 7. **Fail** → leave failing ACs unchecked with the reason, append a `history` row, rewrite `status` → `[qa] [report] ❌` PR comment with per-AC expected/actual + repro file:line + evidence path + "what fixed should look like" **+ inline screenshot embeds of the broken state** → issue comment with the same inline screenshots (showing what's wrong) → increment rebuild counter → move card QA → Ready (label `loop:rebuild-N`). Clean up worktree.
 
@@ -448,13 +415,6 @@ If a screenshot file is >5MB, downscale to ≤1920px wide before committing; Git
    - **Below threshold** — Reviewer MUST NOT approve. Open a `[reviewer]`-prefixed PR thread quoting the lowest-confidence sub-agent finding, write the full Block template comment (see §4 Block/Skip), move card Review → Blocked with reason tag 🛡 truth-check failed (confidence X/100). The card stays Blocked until human review; the bot's "Why I cannot decide" line names the specific sub-agent finding it could not confirm.
    - **Above threshold** — continue to step 7.
    - **No Reproducer needed** — Tester's tests were re-run in step 5.
-6b. **Interrogate** (per `config.interrogate.trigger`, default `risky`): super-review →
-   [interrogate.md](../../super-review/references/interrogate.md). Independent reviewers try to
-   break the diff (sub-agents on the Claude workflow; two inline passes on Codex and
-   Antigravity), then you sort their findings: Act on → findings in the report with the normal
-   class and severity; Consider → Should fix or Nit; Noted and Dismissed → one `Dismissed:` line.
-   Quality-lens findings are Should fix at most and never bounce or block alone. Same `gh`
-   budget as the truth-check. Nothing is auto-applied.
 7. Decide per finding. First re-apply the Over-engineering rule to every collected finding, whatever a sub-agent wrote: Should fix, never Blocker, never on its own a bounce or block. Then:
    - **No findings (Over-engineering aside) + threads clean + truth ≥ threshold + tests green** → run the **merge protocol** below. Do not move the card to Done any other way.
    - **Over-engineering only** (from `ponytail:ponytail-review`, see super-review step 3) → list it in the report, open no thread, and carry on to the merge decision; it never bounces a card alone. When the card bounces for another finding anyway, open a `[builder]` thread for each Over-engineering finding too, so the rebuild trims it.

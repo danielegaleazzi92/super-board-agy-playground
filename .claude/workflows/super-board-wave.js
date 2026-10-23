@@ -17,7 +17,6 @@ export const meta = {
 //     lane: 'build' | 'qa' | 'review' — a Ready card labelled `qa` has lane 'qa'
 //     and skips the Builder; every other Ready card is built first (v3.0.0).
 //   tier: 'low' | 'medium' | 'high' (optional, default 'medium'),  // run model ladder
-//   autonomy: 'ask' | 'decide' | 'full' (optional, default 'ask'),  // run --autonomous[=full]
 // }
 // The harness can deliver `args` as a JSON-encoded string (the tool param is
 // untyped) — normalize before validating.
@@ -39,20 +38,6 @@ const readyLane = (card) => card.lane || (labelsOf(card).includes('qa') ? 'qa' :
 if (input.tier && !['low', 'medium', 'high'].includes(input.tier)) {
   throw new Error(`super-board-wave: unknown tier "${input.tier}" — use low | medium | high`)
 }
-// Autonomy (run --autonomous[=full], or config `autonomy`): "ask" (default) parks a card
-// a human must decide on; "decide" / "full" let the lane decide and leave a decision record
-// (block-template.md → "Autonomous mode"). The hard human-only list never changes.
-const AUTONOMY = input.autonomy || 'ask'
-if (!['ask', 'decide', 'full'].includes(AUTONOMY)) {
-  throw new Error(`super-board-wave: unknown autonomy "${input.autonomy}" — use ask | decide | full`)
-}
-const AUTONOMY_RULES = AUTONOMY === 'ask' ? [] : [
-  `AUTONOMOUS MODE (${AUTONOMY}): the run owner chose not to be asked. Read .claude/skills/super-board/references/block-template.md → "Autonomous mode" and follow it EXACTLY:`,
-  `where you would move this card to Blocked for a decision a person could make (❓ 🧑 🎨 👯, too big, 🛡 truth-check inconclusive, rebuild cap${AUTONOMY === 'full' ? ', merge policy money/auth/schema/spec' : ', merge policy size/default'}),`,
-  `decide instead with the decision ladder, act on it, label the issue and PR auto-decided, and post ONE decision record (marker <!-- super-board:decision -->) on the issue.`,
-  `Still Blocked 🙋, never decided: missing credentials 🔐, billing 💳, permissions 🔑, merge-gate exit 8 steps (live DB, human_steps), destructive production actions${AUTONOMY === 'full' ? '' : ', merge policy money/auth/schema/spec'}.`,
-  `Merge through the gate with --autonomy ${AUTONOMY}.`,
-]
 
 let halted = false
 // Valid form per --kind, from validate() in scripts/super-board-github-read.py (#32).
@@ -168,7 +153,6 @@ const lanePrompt = (lane, card) => [
   BOARD_IO(),
   `Commits, PR title, PR body blocks, comments: .claude/skills/super-board/references/writing-standard.md. Rewrite only your own PR body blocks, with .claude/bin/super-board-pr-body.sh.`,
   ...(lane === 'review' ? REVIEW_MEMORY : []),
-  ...AUTONOMY_RULES,
   ...(lane === 'qa' && card.status === 'Ready'
     ? [`This card is labelled qa: it skips Building. Move it Ready → QA yourself, create the issue branch from the base branch, and test what is already there (run.md → "qa cards").`]
     : []),
@@ -260,8 +244,6 @@ const preflightPrompt = (batch) => [
   `Two Ready cards overlapping each other with no open PR: the lower-numbered one proceeds; sequence only the other, blockedBy [the lower]. Never both.`,
   `A sequence with nothing to wait on (empty blockedBy) leaves the card in Ready: return column Ready and it builds.`,
   BOARD_IO(),
-  ...AUTONOMY_RULES.slice(0, 4),
-  ...(AUTONOMY === 'ask' ? [] : [`In this mode a hold for unclear / too big / duplicate becomes your decision: proceed (unclear: with the reading you chose), split into new Ready tickets and close this one (too big), or close as duplicate citing the PR — each with a decision record. sequence stays sequence: it waits on another card, not a person.`]),
   `Return one verdict per issue: proceed | hold | sequence | skipped (pre-flight blind). Never drop a card silently.`,
 ].join('\n')
 

@@ -153,8 +153,6 @@ def check(command, cwd, root_of, env):
         if not repo:
             continue  # not a repository: git itself will refuse
         allowed = os.path.normpath(os.path.join(repo, ALLOWED_DIR))
-        # Compare normalised forms: on Windows git prints forward slashes, normpath gives
-        # backslashes, and drive letters and folder names are case-insensitive (upstream #72).
         if resolved and os.path.normcase(os.path.normpath(resolved)).startswith(os.path.normcase(allowed) + os.sep):
             continue
         where = ("resolves to " + resolved) if resolved else "cannot be resolved before it runs"

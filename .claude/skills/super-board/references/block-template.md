@@ -169,54 +169,6 @@ write the human's `done` response. The final approval check is a fresh snapshot;
 GitHub atomically protects the head at merge, but does not lock issue comments.
 A human can still merge a PR manually under the repository's normal rules.
 
-## Autonomous mode — decide, then leave a record
-
-`/super-board run --autonomous` (level `decide`) or `--autonomous=full` (config `autonomy`
-sets the default; the flag wins). The run owner chose not to be asked: where a card would go
-to Blocked for a decision a person *could* make, the lane decides, acts, and leaves a decision
-record a human reviews afterwards. Default `ask` is the normal behaviour above.
-
-| Would block on | `decide` | `full` | Decision taken instead |
-|---|---|---|---|
-| ❓ ambiguity, AC vs code contradiction | decide | decide | pick the reading the ladder supports; build it |
-| 🧑 design / product choice, unresolved human comment | decide | decide | choose; answer the comment with the record |
-| 🎨 no measurable AC | decide | decide | write the AC you build to into the record, then build |
-| 👯 duplicate (pre-flight) | decide | decide | close as duplicate citing the PR, or proceed if it is a different feature |
-| too big (pre-flight, size cap mid-build) | decide | decide | split into Ready tickets (`to-tickets`), close or narrow this one |
-| 🛡 truth-check below threshold | decide | decide | re-check once at the strongest model; then merge or bounce on that verdict |
-| rebuild cap reached | decide | decide | close 🤷 with a follow-up ticket, or take the smallest version that passes |
-| merge gate exit 7 — size, default | decide | decide | merge through the gate with `--autonomy` |
-| merge gate exit 7 — money, auth, schema, spec | 🙋 | decide | merge through the gate with `--autonomy full` |
-| 🔐 credentials · 💳 billing · 🔑 permissions | 🙋 | 🙋 | never: the robot cannot supply them |
-| merge gate exit 8 (live DB, human_steps, `needs-you:`) · destructive production action | 🙋 | 🙋 | never |
-
-**Decision ladder** (stop at the first rung that answers): the issue's AC → `PROJECT.md`,
-AGENTS.md, `decisions.md` / `priorities.md` when a goal spec exists → precedent in the repo →
-the smallest blast radius → the most reversible option. Prefer the option a human can undo with
-one revert.
-
-**The record.** One issue comment per decision (the PR gets a one-line link to it), plus the
-label `auto-decided` on the issue and the PR (`gh label create auto-decided --color FBCA04
---description "decided by the robot in autonomous mode" --force` once per repo). Lines in this
-order; check it with `python3 .claude/bin/super-board-decisions.py check --body-file <f>`:
-
-```
-<!-- super-board:decision -->
-[<role>] [decision] 🤖 decided · <reason emoji> <one-line summary>
-Would block: <reason emoji> <what a human would have been asked, one line>
-Options:     A) <option> · B) <option> [· C) …]
-Chose:       <letter> — <what was done, with PR / issue numbers>
-Why:         <ladder rung> — <the reason, one line>
-Risk:        🟢 Low | 🟡 Medium | 🔴 High · <what goes wrong if this was the wrong call>
-Undo:        <exact way back: revert PR #41 · reopen #12 · flip FLAG_X>
-Evidence:    <links: PR, commit sha, test, screenshot>
-```
-
-`🔴 High` is for money, auth, schema, data loss or anything a user sees on day one. At the end
-of a run the orchestrator writes the trail with
-`python3 .claude/bin/super-board-decisions.py report --out docs/super-board/runs/<date>-decisions.md`
-(highest risk first, one review checkbox each) and names it in the final report.
-
 ## Hard rule
 
 **The bot is forbidden from moving any card to Blocked, or dropping it to Done, *without* this full template populated. A 1-line "needs creds" comment is a contract violation and fails Reviewer's thread gate.**

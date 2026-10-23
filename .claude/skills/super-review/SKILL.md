@@ -68,11 +68,6 @@ If the input is ambiguous, default to reviewing the current branch against its u
      diff adds that looks shallow.
    - Scope is the diff, **never the whole codebase**. A hot spot three modules away
      is not this PR's problem.
-   - Read the diff once with the Builder's own cleanup tables: a narrating or contradicting
-     comment, a swallowed error, a new suppression ([clean-the-diff.md](../super-build/references/clean-the-diff.md)),
-     a boolean pair that can contradict, a raw payload crossing into domain code, an unhandled
-     variant ([type-discipline.md](../super-build/references/type-discipline.md)). Class Bug when
-     the bad state is reachable (trace the call chain), otherwise Should fix; never a block alone.
    - Check app-specific conventions from the nearest `CLAUDE.md` / `AGENTS.md`, especially:
      - `clock.now()` instead of `new Date()`;
      - services own business logic, repositories own data access;
@@ -117,6 +112,7 @@ If the input is ambiguous, default to reviewing the current branch against its u
    - If a blocker is a functional regression, hand it to **Super QA**.
    - If a blocker is visual/design fidelity, file a UI ticket; a human can run `/ui-refine-loop` (the board never triggers it).
    - If it is a deepening opportunity, file it with `scripts/super-review-file-refactor.sh` and carry on to the merge decision. Do not open a PR thread for it; do not bounce the card.
+     `--title` is the bare problem: the filer adds the `♻️ [refactor] <scope>:` prefix, so never pass one.
      The `--body-file` uses the ticket format (writing-standard.md § 3): `## Problem`,
      `## Context` (`- **Where:**` the module and files), `## Fix` — the filer refuses a body
      without them. **Write real acceptance criteria too.** A card that carries an
@@ -319,6 +315,7 @@ See `.claude/skills/super-board/references/run.md` → Reviewer. Summary of the 
    - Both open → bounce to whichever is older.
    - Clean up worktree, exit.
 3. Read PR + spot-check Tester evidence + read CLAUDE.md / AGENTS.md.
+   Check the Risk block against the diff: is the Door right (one-way: DROP, rename, data rewrite, public API, sent email) and the Blast radius honest? Fix it with `super-board-pr-body.sh --block risk`; a one-way door is never 🟢.
    **3b. Prior-report check** — load `prior_report` (see "Review remembers"); if present, round 1 checks each prior finding; any `not fixed` → re-open its thread, bounce by prefix, post the report, exit.
 4. Review code + tests.
 5. **Reviewer-side test rerun (always — closes Tester self-verification gap):**
@@ -450,19 +447,6 @@ sub-agents'.
 Compare aggregate to `config.truth_threshold` (default `70`):
 - **Below threshold** → Reviewer MUST NOT approve. Open `[reviewer]`-prefixed PR thread quoting the lowest-confidence sub-agent finding. Write the full §4 Block template comment. Move card Review → Blocked with reason 🛡 truth-check failed (confidence X/100). The bot's "Why I cannot decide" line names the specific sub-agent finding it could not confirm.
 - **Above threshold** → continue to approval decision.
-
-## Interrogate (attack the diff)
-
-The truth-check asks whether the PR's claims are true. Interrogate asks how the change breaks:
-independent reviewers (different model, different lens, no Builder summary) stress-test the
-merge-base diff, and the Reviewer judges their findings as the lead. Trigger, reviewer brief,
-host adaptations (sub-agents on the Claude workflow, two inline passes on Codex and
-Antigravity), the four buckets (Act on · Consider · Noted · Dismissed) and the report lines are
-in [interrogate.md](references/interrogate.md). Rules that never change: Act-on findings carry
-the normal class and severity; quality-lens findings (the "code judo" lens: simplification,
-1000-line files, spaghetti growth, thin wrappers) are Should fix at most and never bounce or block alone;
-nothing a reviewer suggests is applied by the Reviewer; the `gh` budget is the truth-check's. Default trigger `risky` (`config.interrogate`): sensitive labels, a merge-policy
-human route, or a large diff.
 
 ### Block/Skip exits use the §4 mandatory template
 Same rule as super-build/super-qa.

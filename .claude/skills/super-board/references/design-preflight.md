@@ -6,10 +6,8 @@ trigger this step. Ordinary bugs and mechanical refactors keep the normal path.
 
 ## Establish the decision
 
-1. Read the current flow and its owners/callers, `PROJECT.md` and `GLOSSARY.md` when present
-   (mattpocock/skills v1.3 renamed `CONTEXT.md` to `GLOSSARY.md`; read the old name only when no
-   glossary exists), and applicable specs/ADRs. Name the question and the constraints with
-   source references.
+1. Read the current flow and its owners/callers, `PROJECT.md` and `CONTEXT.md` when present,
+   and applicable specs/ADRs. Name the question and the constraints with source references.
 2. Follow an applicable recorded decision when it answers the question. Finish here rather
    than reopening it to produce options.
 3. Confirm who may choose. Interactive lint proposes a choice to the user in the existing

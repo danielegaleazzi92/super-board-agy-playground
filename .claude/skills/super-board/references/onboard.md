@@ -9,7 +9,7 @@ Invoked as `/super-board onboard` (get.sh / install.sh) or `/super-board:super-b
 ## Host-visible skill checks
 
 Checks use `.claude/bin/super-board-skills-ready.py --profile setup --host
-<claude|codex>` and show `helper_readiness`: exact files, declared fallbacks,
+<claude|codex|agy>` and show `helper_readiness`: exact files, declared fallbacks,
 optional skips and missing names. Setup checks the unconditional union; a
 selected card may need fewer helpers. Node or `skills-lock.json` never proves
 readiness. `check` and dispatch install nothing. Explicit `fix` retains helper
@@ -146,11 +146,8 @@ Write it atomically (temp file + rename) after every answer. A halt never loses 
    │    verifier gaps never replace or block the required verification commands.
    ├─ machine time zone for config `timezone`: $TZ, else readlink /etc/localtime | sed
    │    's#.*zoneinfo/##', else timedatectl show -p Timezone --value, else "UTC". Shown at step 8.
-   ├─ platform: bash $SB/super-board-platform.sh detect → kind (web | android | unity), suggested
-   │    commands, devices, exclusive resources, permissions, prerequisites. Shown at step 8;
-   │    `unknown` → step 8 asks for the kind (references/platforms.md).
-   └─ host: bash $SB/super-board-host.sh, or Antigravity tools in your tool list → `agy`
-        (Antigravity extras at step 8).
+   └─ host: bash $SB/super-board-host.sh (exit 65 → the step-8 question); `agy` adds the
+      Antigravity extras at step 8.
 
 1. 🔍 CHECKS — nothing asked except system tools and sign-ins
    ├─ python3 $SB/super-board-setup.py fix --host <actual-worker-host> --text
@@ -321,9 +318,6 @@ Write it atomically (temp file + rename) after every answer. A halt never loses 
    "Bash(gh pr merge:*)"), one "Bash(<migrate command>)" per allowed env, "Bash(bash
    .claude/bin/super-board-env-check.sh:*)" and the test runner. N counts what is NOT already in
    settings.json: `super-board-settings.py allow .claude/settings.json <rules…> --dry-run`.
-   Android / Unity: the test runner lines come from the detected platform — "Bash(./gradlew:*)",
-   "Bash(adb:*)", "Bash(maestro:*)", "Bash(bash .claude/bin/super-board-platform.sh:*)", or the
-   Unity editor path — one line each, in the same diff.
 
 7. 📥 BUG SOURCES — tick sources; "Add another source" is the free-text box
    ├─ AskUserQuestion multiSelect "Where should I look for problems?" (header "Bug sources"):
@@ -362,20 +356,14 @@ Write it atomically (temp file + rename) after every answer. A halt never loses 
    ├─ Existing or staged project verifier: list skill/map/runner paths and state
    │    `starter, not run` or the actual selected-feature proof. Preserve human-owned
    │    critical paths and flows; missing source leaves this optional helper absent.
-   │      Platform android (compose)           Verify   ./gradlew --no-daemon testDebugUnitTest …
-   │    Platform `unknown` → one AskUserQuestion first: "What does this project build?"
-   │    [Web app / Android app (Kotlin, Gradle) / Unity game or app]; a non-web pick shows the
-   │    prerequisites line from detect (JDK + Android SDK + emulator; Unity version + UNITY_PATH
-   │    + license + Git LFS) — missing ones are listed, never installed silently.
    ├─ AskUserQuestion "Write everything?" (header "Save") [Write everything (Recommended) /
    │    Change one thing → pick the step, walk only it, back here / Cancel — nothing written].
    ├─ Write, in order (each atomic; stop and report on the first failure — answers are kept):
    │    ├─ .claude/super-board/configs/<slug>.json (committed): description, project, target
    │    │    {type: repo | repo+url}, repo, base_branch, timezone, columns (the seven), labels,
    │    │    paths, merge_policy, migrations, collect (incl. custom), notifications {channel:
-   │    │    "session", bot_identity}, worker_backend "workflow", verify_commands (non-blank project
-   │    │    checks; a detected platform suggests them), platform {kind, framework, commands, devices,
-   │    │    exclusive} from detect. No `variant`.
+   │    │    "session", bot_identity}, worker_backend "workflow", host (always: `bash $SB/super-board-host.sh`;
+   │    │    on exit 65 ask claude/codex/opencode/agy), verify_commands (non-blank project checks). No `variant`.
    │    ├─ .claude/super-board/active ← <slug>
    │    ├─ .gitignore += .claude/super-board/active, onboard-answers.json, onboard-staged/,
    │    │    backup/, inflight/, migrations/, upgrade.json (all under .claude/super-board/)
@@ -386,13 +374,13 @@ Write it atomically (temp file + rename) after every answer. A halt never loses 
    │    ├─ staged project verifier skill/map/scenarios/runner, if source-backed; then
    │    │    inspect the saved map and resolve the local skill for the actual host.
    │    ├─ docs/agents/issue-tracker.md; docs/super-board/PROJECT.md (a sub-agent drafts it from
-   │       manifests + README + tree, no question; listed in the table as "PROJECT.md drafted")
-   │    └─ host `agy` (or the user asked for Antigravity): `install.sh --agy` already mirrored the
-   │        skills and wired .agents/hooks.json — if not, say "re-run ./install.sh --agy <this-dir>".
-   │        Then show `python3 $SB/super-board-agy-permissions.py --add <platform rules>` (dry run)
-   │        and run it with `--apply` only after "Write everything": it edits the user's global
-   │        ~/.gemini/antigravity-cli/settings.json (backup kept). Remind once: add
-   │        `| bash <repo>/.claude/bin/super-board-usage.sh record` to the agy status-line command.
+   │    │    manifests + README + tree, no question; listed in the table as "PROJECT.md drafted")
+   │    └─ host `agy`: `install.sh --hosts agy` has written `.agents/hooks.json` (if not, say
+   │       "re-run ./install.sh --hosts agy <this-dir>"). Then show `python3
+   │       $SB/super-board-agy-permissions.py` (dry run) and run it with `--apply` only after
+   │       "Write everything": it edits the user's ~/.gemini/antigravity-cli/settings.json
+   │       (backup kept). Remind once: set the agy status line to
+   │       `bash <repo>/.claude/bin/super-board-usage.sh record` so the quota guard has a snapshot.
    └─ Delete onboard-staged/; keep the answers file (re-runs use it).
 
 DONE — run `python3 $SB/super-board-verification-ready.py --config <saved config>`;

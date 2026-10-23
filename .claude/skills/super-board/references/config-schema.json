@@ -31,6 +31,14 @@
   // only; the dispatcher refuses to run (exit 78) unless set here.
   "worker_backend": "workflow",
 
+  // Agent host this project runs on: "claude" | "codex" | "opencode" | "agy" (Google
+  // Antigravity). Separate from
+  // worker_backend. Onboard and setup's fix ALWAYS write it (setup fills a missing key
+  // from --host and never replaces a set one); setup's check flags any other value.
+  // `super-board-host.sh --config <this file>` uses it only when SUPER_BOARD_HOST and
+  // every env sign (Codex ids, OPENCODE, ANTIGRAVITY_AGENT, CLAUDECODE) are absent. See docs/hosts.md.
+  "host": "claude",
+
   // Optional post-completion adapter; never bundles or installs the external skill.
   // Runs only after selected work is verified merged and no work/approvals remain.
   // The supervising host checks the resulting diff; the helper itself is read-only.
@@ -52,16 +60,6 @@
   //   "high"   — opus for every card
   "model_tier": "medium",
 
-  // Who decides when a card would wait for a person. Overridden per run by
-  // `super-board run --autonomous` (decide) / `--autonomous=full` (full).
-  //   "ask"    — (default) park it in Blocked with the template; a human decides.
-  //   "decide" — the lane decides ambiguity, design choices, duplicates, splits, truth-check
-  //              doubts, rebuild caps and merge-policy size/default, and posts a decision record.
-  //   "full"   — also merge-policy money/auth/schema/spec.
-  // Never decided: credentials, billing, permissions, merge-gate exit 8 steps, destructive
-  // production actions. Trail: scripts/super-board-decisions.py report.
-  "autonomy": "ask",
-
   // Optional Codex lane settings. Used by explicit `run --codex` and usage
   // fallback; never selects the backend or grants Review/merge ownership.
   "codex": {
@@ -71,77 +69,26 @@
     "model": null
   },
 
-  // Optional Google Antigravity lane settings. Used by explicit `run --agy` and
-  // usage_fallback "agy"; never selects the backend or grants Review/merge ownership
-  // on a fallback. See references/run-workflow.md → "Antigravity runs".
+  // Optional Google Antigravity lane settings. Used by explicit `run --agy` and usage
+  // fallback "agy"; never selects the backend or grants Review/merge ownership on a
+  // fallback. See scripts/super-board-agy-lane.sh.
   "agy": {
-    // Model slug passed to `agy -p --model` for every card (list them: `agy models`).
-    // `--agy=<model>` wins; absent/null leaves the ladder below, then the CLI default.
+    // Model slug passed to `agy -p --model` for every card (list them: `agy models`). A
+    // slug that already names an effort (gemini-3.8-flash-low) gets no --effort: agy
+    // refuses the pair. `--agy=<model>` wins; absent/null leaves the ladder below, then
+    // the CLI default.
     "model": null,
     // Optional run tier x card grade -> model slug, e.g.
-    // {"medium": {"low": "<flash slug>", "medium": "<flash slug>", "high": "<pro slug>"}}.
+    // {"medium": {"low": "gemini-3.8-flash", "medium": "gemini-3.8-flash", "high": "gemini-4-argon"}}.
     // A missing cell uses the CLI default model.
     "ladder": null,
-    // Pins `--effort` for every lane. Absent: low/medium/high by tier x grade
-    // (scripts/super-board-agy-lane.sh AGY_EFFORT); Review always "high".
+    // Pins `--effort` (low|medium|high|xhigh|max) for every lane. Absent: review high,
+    // otherwise low/medium/high by tier x grade (AGY_EFFORT in the lane launcher).
     "effort": null,
-    // Per-lane `--print-timeout`. The CLI default is 5m, far too short for a build lane.
+    // Per-lane `--print-timeout`. agy's own default waits forever; a build lane needs a cap.
     "timeout": "120m",
-    // Router that grades Ready cards (read only). Absent: CLI default model at --effort low.
-    "router_model": null,
-    // true passes --dangerously-skip-permissions to every lane: approves EVERY tool call.
-    // Leave false and allow the board's commands once with
-    // .claude/bin/super-board-agy-permissions.py --apply instead.
-    "skip_permissions": false
-  },
-
-  // What the project is built with, so lanes pick the right build, tests, devices and
-  // evidence. Written by onboard from `.claude/bin/super-board-platform.sh detect`;
-  // absent means "web" (Playwright, the three browser viewports). Full guide per kind:
-  // references/platforms.md.
-  "platform": {
-    // "web" | "android" | "unity"
-    "kind": "web",
-    // Free label shown in reports: "next", "compose", "unity 6000.0.23f1", …
-    "framework": "next",
-    // Lane commands. verify also belongs in verify_commands (the merge gate runs those).
-    // ui / e2e on android and unity run under a lock (super-board-platform.sh lock …).
-    "commands": {
-      "verify": "npm ci --silent && npm run typecheck && npm run lint && npm test",
-      "unit": "npm test",
-      "ui": null,
-      "e2e": "npx playwright test",
-      "build": "npm run build",
-      "screenshot": "Playwright page.screenshot() inside the e2e spec"
-    },
-    // Where QA evidence is captured. web: browser viewports; android: AVD names;
-    // unity: game-view resolutions. Replaces the fixed 1920/1024/375 viewports.
-    "devices": [
-      { "name": "desktop", "size": "1920x1080" },
-      { "name": "tablet", "size": "1024x768" },
-      { "name": "mobile", "size": "375x667" }
-    ],
-    // Machine-wide resources only one lane may use at a time
-    // ("android-emulator", "unity-playmode"). Lanes wrap those runs in
-    // `bash .claude/bin/super-board-platform.sh lock <resource> -- <command>`.
-    "exclusive": []
-  },
-
-  // Optional. Present only when /super-goal drives this board toward a written spec
-  // (skills/super-goal). Lanes then follow run.md → "Goal mode".
-  "goal": {
-    "spec_dir": "docs/goal",
-    // Runs every acceptance test and leaves JUnit / NUnit XML at `results`.
-    "acceptance_command": "npx playwright test e2e/acceptance --reporter=junit",
-    "results": ["test-results/*.xml"],
-    // Lanes never edit these; the merge gate sends a PR touching them to a human
-    // (category `spec`) unless it carries the `spec` label.
-    "acceptance_paths": ["e2e/acceptance/"],
-    // "decide-and-log": doubts the spec answers are decided and logged, not parked.
-    // "ask": super-board's normal ❓ blocks.
-    "autonomy": "decide-and-log",
-    "max_iterations": 20,
-    "max_stale_iterations": 3
+    // Router that grades Ready cards (read only, --effort low). Absent: the CLI default model.
+    "router_model": null
   },
 
   "target": {
@@ -328,23 +275,6 @@
   // Blocked with `🛡 truth-check failed (confidence X/100)`. See §7.
   "truth_threshold": 70,
 
-  // Reviewer's "attack the diff" pass (super-review/references/interrogate.md):
-  // independent reviewers try to break the change, the Reviewer judges their
-  // findings (Act on · Consider · Noted · Dismissed). Optional; the truth-check
-  // above still runs on its own trigger.
-  //   trigger: "off" · "risky" (default: security/migration/payments/auth labels,
-  //            a merge-policy human route, or a diff ≥ min_lines) · "non-trivial"
-  //            (same rule as truth_gate) · "always"
-  //   min_lines: changed lines that make a diff "risky" (default 200)
-  //   reviewers: 1–4 reviewers (default 2). Codex and Antigravity lanes run them
-  //              inline, one after another.
-  "interrogate": { "trigger": "risky", "min_lines": 200, "reviewers": 2 },
-
-  // Tester options. swarm.slices > 0 lets the Tester split a card's checks into
-  // up to that many parallel testers (super-qa/references/swarm.md); 0 (default)
-  // keeps one Tester. Codex and Antigravity lanes run the slices inline.
-  "qa": { "swarm": { "slices": 0 } },
-
   // Shell commands proving the branch still BUILDS against the base branch as it
   // is right now. Run by super-board-merge-gate.sh from the root of a scratch
   // worktree that already has the current base merged in, inside the merge lock,
@@ -363,7 +293,7 @@
   // orchestrator runs super-board-usage.sh check; if the 5-hour or weekly
   // window is at or above this percentage, no new wave launches until it
   // resets. Default 95. See references/run-workflow.md → wave loop step 1.
-  // Explicit `run --codex` skips this Claude-only guard. `run --agy` checks the
+  // Explicit `run --codex` skips this Claude-only guard; `run --agy` checks the
   // Antigravity quota instead (`super-board-usage.sh check --host agy`).
   "usage_pause_pct": 95,
 
@@ -373,7 +303,7 @@
   //             (super-board-codex-lane.sh without --codex). Review stays on
   //             Claude: cards that reach Review wait there for the next Claude
   //             wave. The launcher refuses a fallback lane without this value.
-  //   "agy"   — the same on Antigravity (super-board-agy-lane.sh without --agy).
+  //   "agy"   — the same on Google Antigravity (super-board-agy-lane.sh without --agy).
   "usage_fallback": "none",
 
   // Required for Board dispatch and Board-controlled merges: at least one non-blank

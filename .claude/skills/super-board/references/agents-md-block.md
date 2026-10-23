@@ -7,7 +7,7 @@ Board: Backlog · Ready · Building · QA · Review · Blocked · Done. Labels r
 | Set up / repair the board | `/super-board onboard` | DON'T hand-edit config mid-run |
 | Check tickets before a run | `/super-board lint` | NEVER run with AC-less tickets |
 | Drain the board | `/super-board run` | NEVER build, test or merge from the orchestrator |
-| Board state / catch up / halt | `/super-board status` · `/super-board catchup` · `/super-board stop` | catchup NEVER writes |
+| Board state / halt | `/super-board status` · `/super-board stop` | |
 | Build one ticket | `/super-build` | NEVER build outside the card's worktree |
 | QA a branch, or a live URL alone | `/super-qa` · `/super-qa <url>` | NEVER mark QA pass without evidence |
 | Review a PR, merge | `/super-review` | NEVER `gh pr merge` direct — merge gate only |
