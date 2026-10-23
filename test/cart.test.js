@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createCart, addItem, removeItem, total, applyDiscount } from '../src/cart.js';
+import { createCart, addItem, removeItem, total, applyDiscount, clearCart } from '../src/cart.js';
 
 test('an empty cart totals zero', () => {
   assert.equal(total(createCart()), 0);
@@ -58,4 +58,35 @@ test('non-integer and non-number types throw error mentioning percent', () => {
   assert.throws(() => applyDiscount(cart, '10'), /percent/);
   assert.throws(() => applyDiscount(cart, null), /percent/);
   assert.throws(() => applyDiscount(cart, NaN), /percent/);
+});
+
+test('clearCart empties items and resets total to zero on a cart with items and discount', () => {
+  const cart = addItem(addItem(createCart(), { sku: 'book', price: 10 }), { sku: 'pen', price: 5 });
+  applyDiscount(cart, 10);
+  clearCart(cart);
+  assert.equal(cart.items.length, 0);
+  assert.equal(total(cart), 0);
+});
+
+test('after clearCart, adding an item gives its full price with no surviving discount', () => {
+  const cart = addItem(createCart(), { sku: 'book', price: 10 });
+  applyDiscount(cart, 10);
+  clearCart(cart);
+  addItem(cart, { sku: 'shirt', price: 20 });
+  assert.equal(total(cart), 20);
+});
+
+test('clearCart returns the same cart object so calls chain', () => {
+  const cart = createCart();
+  assert.equal(clearCart(cart), cart);
+  const chained = addItem(clearCart(cart), { sku: 'apple', price: 0.5 });
+  assert.equal(chained, cart);
+  assert.equal(total(cart), 0.5);
+});
+
+test('clearCart on an empty cart is a no-op that does not throw', () => {
+  const cart = createCart();
+  assert.doesNotThrow(() => clearCart(cart));
+  assert.equal(cart.items.length, 0);
+  assert.equal(total(cart), 0);
 });

@@ -31,3 +31,9 @@ export function total(cart) {
   const subtotal = cart.items.reduce((sum, item) => sum + item.price * item.qty, 0);
   return cart.discount ? subtotal * (1 - cart.discount / 100) : subtotal;
 }
+
+export function clearCart(cart) {
+  cart.items = [];
+  delete cart.discount;
+  return cart;
+}
