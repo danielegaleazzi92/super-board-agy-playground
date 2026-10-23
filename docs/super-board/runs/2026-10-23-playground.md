@@ -12,3 +12,10 @@
 | #1 | build:failed | failed | Ready | wave 7 (4.5 min): worktree guard passed; lane auto-denied on `write_file` (target outside the workspace, see analysis) |
 | #1 | build:advanced → qa:failed | failed | Review | wave 8 (24 min): Build opened draft PR #2 (tests green); QA verified 5/5 ACs and moved the card to Review, but its structured result was invalid for the engine |
 | #1 | review:failed | merged | Done | wave 9 (15 min): Reviewer reviewed, merge gate ran verify, squash-merged PR #2 as 51e5244 and closed #1; the engine again saw no structured result |
+
+## Run 2 · PR pack (EricTechPro/super-board PRs #81-#84), card #3
+
+| Card | Lanes | Status | Column | Detail |
+|---|---|---|---|---|
+| #3 | build:advanced → qa:failed | failed | QA | wave 1 (8.5 min): Build opened PR #4; QA auto-denied on a command (raw run kept: inflight/agy-3-qa.last.json) |
+| #3 | qa:advanced → review:advanced | merged | Done | wave 2 (19 min): QA verified 5/5 AC (+1 test), Reviewer merged PR #4 as cc1b8ef; both lanes returned valid structured results |
