@@ -19,6 +19,15 @@ export function removeItem(cart, sku) {
   return cart;
 }
 
+export function applyDiscount(cart, percent) {
+  if (!Number.isInteger(percent) || percent < 0 || percent > 100) {
+    throw new Error('percent must be an integer from 0 to 100');
+  }
+  cart.discount = percent;
+  return cart;
+}
+
 export function total(cart) {
-  return cart.items.reduce((sum, item) => sum + item.price * item.qty, 0);
+  const subtotal = cart.items.reduce((sum, item) => sum + item.price * item.qty, 0);
+  return cart.discount ? subtotal * (1 - cart.discount / 100) : subtotal;
 }

@@ -1,0 +1,29 @@
+﻿
+> super-board-agy-playground@0.1.0 verify
+> npm run lint && npm test
+
+
+> super-board-agy-playground@0.1.0 lint
+> node --check src/index.js && node --check src/cart.js
+
+
+> super-board-agy-playground@0.1.0 test
+> node --test "test/**/*.test.js"
+
+Ô£ö an empty cart totals zero (1.1078ms)
+Ô£ö adding the same sku twice merges the quantity (0.1355ms)
+Ô£ö removing a sku drops it from the total (0.1108ms)
+Ô£ö invalid items are rejected (0.2598ms)
+Ô£ö applyDiscount subtracts percentage discount from total (0.0965ms)
+Ô£ö a second applyDiscount replaces the first (0.0821ms)
+Ô£ö invalid discount percentages throw error mentioning percent (0.0936ms)
+Ô£ö applyDiscount boundary values 0 and 100 percent work (0.061ms)
+Ô£ö non-integer and non-number types throw error mentioning percent (0.1274ms)
+Ôä╣ tests 9
+Ôä╣ suites 0
+Ôä╣ pass 9
+Ôä╣ fail 0
+Ôä╣ cancelled 0
+Ôä╣ skipped 0
+Ôä╣ todo 0
+Ôä╣ duration_ms 116.5094
