@@ -1,0 +1,75 @@
+{
+  "version": 1,
+  "description": "agy playground",
+  "project": { "owner": "danielegaleazzi92", "title": "Super-board-agy-playground board", "number": 3 },
+  "worker_backend": "workflow",
+  "model_tier": "medium",
+  "autonomy": "ask",
+  "agy": {
+    "model": "gemini-3.8-flash-low",
+    "ladder": null,
+    "effort": null,
+    "timeout": "60m",
+    "router_model": "gemini-3.8-flash-low",
+    "skip_permissions": false
+  },
+  "platform": {
+    "kind": "web",
+    "framework": "node",
+    "commands": {
+      "verify": "npm run verify",
+      "unit": "npm test",
+      "ui": null,
+      "e2e": null,
+      "build": null,
+      "screenshot": null
+    },
+    "devices": [
+      { "name": "desktop", "size": "1920x1080" },
+      { "name": "tablet", "size": "1024x768" },
+      { "name": "mobile", "size": "375x667" }
+    ],
+    "exclusive": []
+  },
+  "target": { "type": "repo", "url": null },
+  "repo": { "path": ".", "remote": "https://github.com/danielegaleazzi92/super-board-agy-playground" },
+  "base_branch": "main",
+  "timezone": "Europe/Rome",
+  "columns": ["Backlog", "Ready", "Building", "QA", "Review", "Blocked", "Done"],
+  "labels": ["qa", "bug", "feature"],
+  "paths": {
+    "project_md": "docs/super-board/PROJECT.md",
+    "pre_flight_md": "docs/super-board/pre-flight.md",
+    "runs_dir": "docs/super-board/runs"
+  },
+  "human_approves_merge": false,
+  "merge_policy": { "default": "auto", "auto_max_lines": 400, "allow_auto_on_production": false },
+  "migrations": {
+    "globs": ["**/migrations/*.sql", "db/migrate/**"],
+    "allowed_envs": ["test", "staging"],
+    "target_env": "live",
+    "commands": {},
+    "checks": {},
+    "human_steps": []
+  },
+  "no_progress_cycles": 6,
+  "max_dispatches": 0,
+  "truth_gate": "non-trivial",
+  "truth_threshold": 70,
+  "interrogate": { "trigger": "risky", "min_lines": 200, "reviewers": 2 },
+  "qa": { "swarm": { "slices": 0 } },
+  "usage_pause_pct": 95,
+  "usage_fallback": "none",
+  "verify_commands": ["npm run verify"],
+  "max_workers": 1,
+  "rebuild_cap": 2,
+  "block_rate_alert_pct": 30,
+  "collect": {
+    "sources": ["github"],
+    "window_days": 14,
+    "prs": { "max_prs": 200 },
+    "architecture": { "max_findings": 5 },
+    "custom": []
+  },
+  "notifications": { "channel": "session", "chat_id": null, "bot_identity": "danielegaleazzi92" }
+}

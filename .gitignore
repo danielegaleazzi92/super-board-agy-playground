@@ -4,3 +4,9 @@ node_modules/
 .claude/super-board/onboard-staged/
 .claude/worktrees/
 .gemini/
+.claude/super-board/active
+.claude/super-board/onboard-answers.json
+.claude/super-board/backup/
+.claude/super-board/migrations/
+.claude/super-board/upgrade.json
+.claude/settings.json.bak-*
