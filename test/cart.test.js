@@ -90,3 +90,11 @@ test('clearCart on an empty cart is a no-op that does not throw', () => {
   assert.equal(cart.items.length, 0);
   assert.equal(total(cart), 0);
 });
+
+test('clearCart on a cart with items but without discount empties items cleanly', () => {
+  const cart = addItem(createCart(), { sku: 'hat', price: 15 });
+  clearCart(cart);
+  assert.equal(cart.items.length, 0);
+  assert.equal(total(cart), 0);
+  assert.equal('discount' in cart, false);
+});
