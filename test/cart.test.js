@@ -44,3 +44,18 @@ test('invalid discount percentages throw error mentioning percent', () => {
   assert.throws(() => applyDiscount(cart, 101), /percent/);
   assert.throws(() => applyDiscount(cart, 1.5), /percent/);
 });
+
+test('applyDiscount boundary values 0 and 100 percent work', () => {
+  const cart = addItem(createCart(), { sku: 'item', price: 20 });
+  applyDiscount(cart, 0);
+  assert.equal(total(cart), 20);
+  applyDiscount(cart, 100);
+  assert.equal(total(cart), 0);
+});
+
+test('non-integer and non-number types throw error mentioning percent', () => {
+  const cart = createCart();
+  assert.throws(() => applyDiscount(cart, '10'), /percent/);
+  assert.throws(() => applyDiscount(cart, null), /percent/);
+  assert.throws(() => applyDiscount(cart, NaN), /percent/);
+});
