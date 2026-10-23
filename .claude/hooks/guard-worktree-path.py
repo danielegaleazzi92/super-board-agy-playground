@@ -138,8 +138,9 @@ def worktree_targets(command, cwd, env):
 
 def repo_root(toplevel):
     """The main checkout's root, from it or any worktree under .claude/worktrees/."""
+    toplevel = os.path.normpath(toplevel)  # git prints forward slashes on Windows; normpath gives the native form
     marker = os.sep + ALLOWED_DIR + os.sep
-    at = toplevel.find(marker)
+    at = os.path.normcase(toplevel).find(os.path.normcase(marker))
     return toplevel if at == -1 else toplevel[:at]
 
 
@@ -151,8 +152,10 @@ def check(command, cwd, root_of, env):
         repo = root_of(git_dir) or root_of(cwd)
         if not repo:
             continue  # not a repository: git itself will refuse
-        allowed = os.path.join(repo, ALLOWED_DIR)
-        if resolved and resolved.startswith(allowed + os.sep):
+        allowed = os.path.normpath(os.path.join(repo, ALLOWED_DIR))
+        # Compare normalised forms: on Windows git prints forward slashes, normpath gives
+        # backslashes, and drive letters and folder names are case-insensitive (upstream #72).
+        if resolved and os.path.normcase(os.path.normpath(resolved)).startswith(os.path.normcase(allowed) + os.sep):
             continue
         where = ("resolves to " + resolved) if resolved else "cannot be resolved before it runs"
         return (
